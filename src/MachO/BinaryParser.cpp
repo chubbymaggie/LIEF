@@ -26,7 +26,6 @@
 #include "LIEF/filesystem/filesystem.h"
 #include "LIEF/exception.hpp"
 
-
 #include "LIEF/MachO/BinaryParser.hpp"
 #include "BinaryParser.tcc"
 
@@ -46,25 +45,28 @@ namespace MachO {
 BinaryParser::BinaryParser(void) = default;
 BinaryParser::~BinaryParser(void) = default;
 
-BinaryParser::BinaryParser(const std::vector<uint8_t>& data, uint64_t fat_offset) :
+BinaryParser::BinaryParser(const std::vector<uint8_t>& data, uint64_t fat_offset, const ParserConfig& conf) :
   stream_{new VectorStream{data}},
-  binary_{new Binary{}}
+  binary_{new Binary{}},
+  config_{conf}
 {
   this->binary_->fat_offset_ = fat_offset;
   this->init();
 }
 
 
-BinaryParser::BinaryParser(std::unique_ptr<VectorStream>&& stream, uint64_t fat_offset) :
+BinaryParser::BinaryParser(std::unique_ptr<VectorStream>&& stream, uint64_t fat_offset, const ParserConfig& conf) :
   stream_{std::move(stream)},
-  binary_{new Binary{}}
+  binary_{new Binary{}},
+  config_{conf}
 {
   this->binary_->fat_offset_ = fat_offset;
   this->init();
 }
 
-BinaryParser::BinaryParser(const std::string& file) :
-  LIEF::Parser{file}
+BinaryParser::BinaryParser(const std::string& file, const ParserConfig& conf) :
+  LIEF::Parser{file},
+  config_{conf}
 {
 
   if (not is_macho(file)) {
@@ -86,51 +88,122 @@ BinaryParser::BinaryParser(const std::string& file) :
 }
 
 void BinaryParser::init(void) {
-  LOG(DEBUG) << "Parsing MachO" << std::endl;
-  MACHO_TYPES type = static_cast<MACHO_TYPES>(
-      *reinterpret_cast<const uint32_t*>(this->stream_->read(0, sizeof(uint32_t))));
+  VLOG(VDEBUG) << "Parsing MachO" << std::endl;
+  try {
+    MACHO_TYPES type = static_cast<MACHO_TYPES>(this->stream_->peek<uint32_t>(0));
 
-  if (type == MACHO_TYPES::MH_MAGIC_64 or
-      type == MACHO_TYPES::MH_CIGAM_64 )
-  {
-    this->is64_ = true;
+    if (type == MACHO_TYPES::MH_MAGIC_64 or
+        type == MACHO_TYPES::MH_CIGAM_64 )
+    {
+      this->is64_ = true;
+    }
+    else
+    {
+      this->is64_ = false;
+    }
+
+    this->binary_->is64_ = this->is64_;
+    this->type_          = type;
+
+    if (this->is64_) {
+      this->parse<MachO64>();
+    } else {
+      this->parse<MachO32>();
+    }
+  } catch (const std::exception& e) {
+    VLOG(VDEBUG) << e.what();
   }
-  else
-  {
-    this->is64_ = false;
+
+}
+
+
+void BinaryParser::parse_export_trie(uint64_t start, uint64_t end, const std::string& prefix) {
+  if (this->stream_->pos() >= end) {
+    return;
   }
 
-  this->binary_->is64_ = this->is64_;
-  this->type_          = type;
-
-  if (this->is64_) {
-    this->parse<MachO64>();
-  } else {
-    this->parse<MachO32>();
+  if (start > this->stream_->pos()) {
+    return;
   }
 
+  const uint8_t terminal_size = this->stream_->read<uint8_t>();
+  uint64_t children_offset = this->stream_->pos() + terminal_size;
+
+  if (terminal_size != 0) {
+    uint64_t offset = this->stream_->pos() - start;
+
+    uint64_t flags   = this->stream_->read_uleb128();
+    uint64_t address = this->stream_->read_uleb128();
+
+    const std::string& symbol_name = prefix;
+    std::unique_ptr<ExportInfo> export_info{new ExportInfo{address, flags, offset}};
+    if (this->binary_->has_symbol(symbol_name)) {
+      Symbol& symbol = this->binary_->get_symbol(symbol_name);
+      export_info->symbol_ = &symbol;
+      symbol.export_info_ = export_info.get();
+    } else { // Register it into the symbol table
+      std::unique_ptr<Symbol> symbol{new Symbol{}};
+      symbol->origin_            = SYMBOL_ORIGINS::SYM_ORIGIN_DYLD_EXPORT;
+      symbol->value_             = export_info->address();
+      symbol->type_              = 0;
+      symbol->numberof_sections_ = 0;
+      symbol->description_       = 0;
+      symbol->name(symbol_name);
+
+      // Weak bind of the pointer
+      symbol->export_info_       = export_info.get();
+      export_info->symbol_       = symbol.get();
+      this->binary_->symbols_.push_back(symbol.release());
+    }
+    this->binary_->dyld_info().export_info_.push_back(export_info.release());
+
+  }
+  this->stream_->setpos(children_offset);
+	const uint8_t nb_children = this->stream_->read<uint8_t>();
+  for (size_t i = 0; i < nb_children; ++i) {
+    std::string suffix = this->stream_->read_string();
+    std::string name   = prefix + suffix;
+
+    uint32_t child_node_offet = static_cast<uint32_t>(this->stream_->read_uleb128());
+
+    if (child_node_offet == 0) {
+      break;
+    }
+    size_t current_pos = this->stream_->pos();
+    this->stream_->setpos(start + child_node_offet);
+    this->parse_export_trie(start, end, name);
+    this->stream_->setpos(current_pos);
+  }
+
+}
+
+void BinaryParser::parse_dyldinfo_export(void) {
+
+  DyldInfo& dyldinfo = this->binary_->dyld_info();
+
+  uint32_t offset = std::get<0>(dyldinfo.export_info());
+  uint32_t size   = std::get<1>(dyldinfo.export_info());
+
+  if (offset == 0 or size == 0) {
+    return;
+  }
+
+  uint64_t end_offset = offset + size;
+
+  try {
+    const uint8_t* raw_trie = this->stream_->peek_array<uint8_t>(offset, size);
+    dyldinfo.export_trie({raw_trie, raw_trie + size});
+  } catch (const exception& e) {
+    LOG(WARNING) << e.what();
+  }
+
+  this->stream_->setpos(offset);
+  this->parse_export_trie(offset, end_offset, "");
 }
 
 Binary* BinaryParser::get_binary(void) {
   return this->binary_;
 }
-
-
-std::pair<uint64_t, uint64_t> BinaryParser::decode_uleb128(const VectorStream& stream, uint64_t offset) {
-  uint64_t value = 0;
-  unsigned shift = 0;
-  uint64_t current_offset = offset - sizeof(uint8_t);
-  do {
-    current_offset += sizeof(uint8_t);
-    value += static_cast<uint64_t>(stream.read_integer<uint8_t>(current_offset) & 0x7f) << shift;
-    shift += 7;
-  } while (stream.read_integer<uint8_t>(current_offset) >= 128);
-
-  uint64_t delta = current_offset - offset;
-  delta++;
-  return {value, delta};
-}
-
 
 } // namespace MachO
 } // namespace LIEF

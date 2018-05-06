@@ -15,7 +15,7 @@
  */
 #include <iomanip>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 
 #include "LIEF/PE/Export.hpp"
 
@@ -67,11 +67,11 @@ const std::string& Export::name(void) const {
 }
 
 it_export_entries Export::entries(void) {
-  return it_export_entries{std::ref(this->entries_)};
+  return this->entries_;
 }
 
 it_const_export_entries Export::entries(void) const {
-  return it_const_export_entries{std::cref(this->entries_)};
+  return this->entries_;
 }
 
 void Export::export_flags(uint32_t flags) {
@@ -99,16 +99,7 @@ void Export::name(const std::string& name) {
 }
 
 void Export::accept(LIEF::Visitor& visitor) const {
-  visitor.visit(this->export_flags());
-  visitor.visit(this->timestamp());
-  visitor.visit(this->major_version());
-  visitor.visit(this->minor_version());
-  visitor.visit(this->ordinal_base());
-  visitor.visit(this->name());
-
-  for (const ExportEntry& entry : this->entries()) {
-    visitor(entry);
-  }
+  visitor.visit(*this);
 }
 
 bool Export::operator==(const Export& rhs) const {

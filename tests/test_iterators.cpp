@@ -78,8 +78,17 @@ struct Foo {
     return {this->bar};
   }
 
+  it_filter_ref filter_always_true(void) {
+    return {this->bar, [] (const std::string& v) { return true; }};
+  }
+
   it_filter_ref get_bar_filter(void) {
     return {this->bar, [] (const std::string& v) { return v == "6" or v == "1" or v == "foo"; }};
+  }
+
+
+  it_filter_ref get_bar_filter_empty(void) {
+    return {this->bar, [] (const std::string& v) { return v == "foo"; }};
   }
 
 
@@ -249,8 +258,8 @@ TEST_CASE("Test const ref iterators", "[lief][iterators][const_ref]") {
 
     it_const_ref_t bar_operator_equal{bars};
     bar_operator_equal += 2;
-    bar_operator_equal.operator=(bars);
-    REQUIRE(bar_operator_equal == bars);
+    //bar_operator_equal.operator=(bars);
+    //REQUIRE(bar_operator_equal == bars);
 
   }
 }
@@ -406,6 +415,11 @@ TEST_CASE("Test ref iterators", "[lief][iterators][ref]") {
 TEST_CASE("Test filter ref iterators", "[lief][iterators][filter][ref]") {
   Foo foo;
 
+  SECTION("Always true") {
+    it_filter_ref true_list = foo.filter_always_true();
+    CHECK(true_list.size() == 8);
+  }
+
   SECTION("operator++") {
 
     it_filter_ref bar_filtred         = foo.get_bar_filter();
@@ -426,9 +440,11 @@ TEST_CASE("Test filter ref iterators", "[lief][iterators][filter][ref]") {
   SECTION("size()") {
 
     it_filter_ref bar_filtred         = foo.get_bar_filter();
+    it_filter_ref bar_filtred_empty   = foo.get_bar_filter_empty();
     it_filter_ref_ptr bar_ptr_filtred = foo.get_bar_ptr_filter();
 
     CHECK(bar_filtred.size() == 4);
+    CHECK(bar_filtred_empty.size() == 0);
     CHECK(bar_ptr_filtred.size() == 2);
   }
 
@@ -490,7 +506,11 @@ TEST_CASE("Test const filter ref iterators", "[lief][iterators][filter][const_re
     it_filter_const_ref     bar_filtred     = foo.get_bar_filter();
     it_filter_const_ref_ptr bar_ptr_filtred = foo.get_bar_ptr_filter();
 
+    CHECK(bar_filtred[1] == "6");
     CHECK(bar_filtred[0] == "1");
+
+    CHECK(bar_ptr_filtred[1] == "6");
+    CHECK(bar_ptr_filtred[0] == "6");
   }
 
 

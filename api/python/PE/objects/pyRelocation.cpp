@@ -15,7 +15,7 @@
  */
 #include "pyPE.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 #include "LIEF/PE/Relocation.hpp"
 
 #include <string>
@@ -27,8 +27,11 @@ using getter_t = T (Relocation::*)(void) const;
 template<class T>
 using setter_t = void (Relocation::*)(T);
 
+template<class T>
+using it_t = T (Relocation::*)(void);
+
 void init_PE_Relocation_class(py::module& m) {
-  py::class_<Relocation>(m, "Relocation")
+  py::class_<Relocation, LIEF::Object>(m, "Relocation")
     .def(py::init<>())
 
     .def_property("virtual_address",
@@ -36,8 +39,8 @@ void init_PE_Relocation_class(py::module& m) {
         static_cast<setter_t<uint32_t>>(&Relocation::virtual_address))
 
     .def_property_readonly("entries",
-        &Relocation::entries,
-        py::return_value_policy::reference)
+        static_cast<it_t<it_relocation_entries>>(&Relocation::entries),
+        py::return_value_policy::reference_internal)
 
     .def("add_entry",
         &Relocation::add_entry,
@@ -49,7 +52,7 @@ void init_PE_Relocation_class(py::module& m) {
     .def("__ne__", &Relocation::operator!=)
     .def("__hash__",
         [] (const Relocation& relocation) {
-          return LIEF::Hash::hash(relocation);
+          return Hash::hash(relocation);
         })
 
     .def("__str__", [] (const Relocation& relocation)

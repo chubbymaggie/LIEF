@@ -63,9 +63,9 @@ vector_iostream& vector_iostream::write(std::vector<uint8_t>&& s) {
   }
   auto&& it = std::begin(this->raw_);
   std::advance(it, static_cast<size_t>(this->tellp()));
-  std::copy(
-      std::make_move_iterator(std::begin(s)),
-      std::make_move_iterator(std::end(s)), it);
+  std::move(
+      std::begin(s),
+      std::end(s), it);
 
   this->current_pos_ += s.size();
   return *this;
@@ -123,5 +123,40 @@ vector_iostream& vector_iostream::seekp(vector_iostream::off_type p, std::ios_ba
 
   return *this;
 }
+
+
+
+// Prefixbuf
+prefixbuf::prefixbuf(std::string const& prefix, std::streambuf* sbuf) :
+  prefix{prefix},
+  sbuf{sbuf},
+  need_prefix{true}
+{}
+
+int prefixbuf::sync() {
+  return this->sbuf->pubsync();
+}
+int prefixbuf::overflow(int c) {
+  if (c != std::char_traits<char>::eof()) {
+    if (this->need_prefix and not this->prefix.empty() and
+        this->prefix.size() != this->sbuf->sputn(&this->prefix[0], this->prefix.size())) {
+      return std::char_traits<char>::eof();
+    }
+
+    this->need_prefix = c == '\n';
+  }
+
+  return this->sbuf->sputc(c);
+}
+
+
+oprefixstream::oprefixstream(std::string const& prefix, std::ostream& out) :
+  prefixbuf(prefix, out.rdbuf()),
+  std::ios(static_cast<std::streambuf*>(this)),
+  std::ostream(static_cast<std::streambuf*>(this))
+{}
+
+
+
 }
 

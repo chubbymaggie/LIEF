@@ -19,7 +19,7 @@ namespace LIEF {
 namespace ELF {
 void init_c_sections(Elf_Binary_t* c_binary, Binary* binary) {
 
-  it_sections sections = binary->get_sections();
+  it_sections sections = binary->sections();
 
   c_binary->sections = static_cast<Elf_Section_t**>(
       malloc((sections.size() + 1) * sizeof(Elf_Section_t**)));
@@ -36,7 +36,7 @@ void init_c_sections(Elf_Binary_t* c_binary, Binary* binary) {
 
     c_binary->sections[i]->name            = b_section.name().c_str();
     c_binary->sections[i]->flags           = b_section.flags();
-    c_binary->sections[i]->type            = static_cast<enum ::SECTION_TYPES>(b_section.type());
+    c_binary->sections[i]->type            = static_cast<enum LIEF_ELF_ELF_SECTION_TYPES>(b_section.type());
     c_binary->sections[i]->virtual_address = b_section.virtual_address();
     c_binary->sections[i]->offset          = b_section.file_offset();
     c_binary->sections[i]->original_size   = b_section.original_size();

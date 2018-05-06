@@ -11,6 +11,18 @@ Parsers
 .. doxygenclass:: LIEF::MachO::BinaryParser
    :project: lief
 
+
+.. doxygenclass:: LIEF::MachO::ParserConfig
+   :project: lief
+
+----------
+
+FatBinary
+*********
+
+.. doxygenclass:: LIEF::MachO::FatBinary
+   :project: lief
+
 ----------
 
 Binary
@@ -143,11 +155,121 @@ Source Version
 
 ----------
 
+
+Version Min
+***********
+
+.. doxygenclass:: LIEF::MachO::VersionMin
+   :project: lief
+
+----------
+
 Relocation
 **********
 
 .. doxygenclass:: LIEF::MachO::Relocation
    :project: lief
+
+----------
+
+
+Relocation Object
+*****************
+
+.. doxygenclass:: LIEF::MachO::RelocationObject
+   :project: lief
+
+----------
+
+
+Relocation Dyld
+***************
+
+.. doxygenclass:: LIEF::MachO::RelocationDyld
+   :project: lief
+
+----------
+
+
+Binding Info
+************
+
+.. doxygenclass:: LIEF::MachO::BindingInfo
+   :project: lief
+
+----------
+
+
+Export Info
+***********
+
+.. doxygenclass:: LIEF::MachO::ExportInfo
+   :project: lief
+
+----------
+
+
+Thread Command
+**************
+
+.. doxygenclass:: LIEF::MachO::ThreadCommand
+   :project: lief
+
+----------
+
+RPath Command
+*************
+
+.. doxygenclass:: LIEF::MachO::RPathCommand
+   :project: lief
+
+----------
+
+
+Code Signature
+**************
+
+.. doxygenclass:: LIEF::MachO::CodeSignature
+   :project: lief
+
+----------
+
+Data In Code
+************
+
+.. doxygenclass:: LIEF::MachO::DataInCode
+   :project: lief
+
+----------
+
+Data Code Entry
+****************
+
+.. doxygenclass:: LIEF::MachO::DataCodeEntry
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::DataCodeEntry::TYPES
+   :project: lief
+
+----------
+
+Utilities
+*********
+
+.. doxygenfunction:: LIEF::MachO::is_macho(const std::string &)
+  :project: lief
+
+.. doxygenfunction:: LIEF::MachO::is_macho(const std::vector< uint8_t > &)
+  :project: lief
+
+.. doxygenfunction:: LIEF::MachO::is_fat(const std::string &)
+  :project: lief
+
+.. doxygenfunction:: LIEF::MachO::is_64(const std::string &)
+  :project: lief
+
+.. doxygenfunction:: LIEF::MachO::decode_uleb128(const std::string &)
+  :project: lief
 
 ----------
 
@@ -167,19 +289,19 @@ Enums
 .. doxygenenum:: LIEF::MachO::LOAD_COMMAND_TYPES
    :project: lief
 
-.. doxygenenum:: LIEF::MachO::SEGMENTS_FLAGS
+.. doxygenenum:: LIEF::MachO::MACHO_SEGMENTS_FLAGS
    :project: lief
 
 .. doxygenenum:: LIEF::MachO::SECTION_FLAGS_HELPER
    :project: lief
 
-.. doxygenenum:: LIEF::MachO::SECTION_TYPES
+.. doxygenenum:: LIEF::MachO::MACHO_SECTION_TYPES
    :project: lief
 
-.. doxygenenum:: LIEF::MachO::SECTION_FLAGS
+.. doxygenenum:: LIEF::MachO::MACHO_SECTION_FLAGS
    :project: lief
 
-.. doxygenenum:: LIEF::MachO::SYMBOL_TYPES
+.. doxygenenum:: LIEF::MachO::MACHO_SYMBOL_TYPES
    :project: lief
 
 .. doxygenenum:: LIEF::MachO::SYMBOL_DESCRIPTIONS
@@ -205,3 +327,34 @@ Enums
 
 .. doxygenenum:: LIEF::MachO::CPU_SUBTYPES_X86
    :project: lief
+
+.. doxygenenum:: LIEF::MachO::RELOCATION_ORIGINS
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::REBASE_TYPES
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::BINDING_CLASS
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::REBASE_OPCODES
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::BIND_TYPES
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::BIND_SPECIAL_DYLIB
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::BIND_OPCODES
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::EXPORT_SYMBOL_KINDS
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::VM_PROTECTIONS
+   :project: lief
+
+.. doxygenenum:: LIEF::MachO::SYMBOL_ORIGINS
+   :project: lief
+

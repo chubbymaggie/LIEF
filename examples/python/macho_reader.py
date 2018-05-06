@@ -9,8 +9,11 @@ import sys
 import os
 import argparse
 import traceback
-
+import lief
 from lief import MachO
+
+from lief import Logger
+Logger.set_level(lief.LOGGING_LEVEL.FATAL)
 
 terminal_rows, terminal_columns = 100, 100
 try:
@@ -20,6 +23,7 @@ except ValueError:
 
 terminal_columns = int(terminal_columns)
 terminal_rows    = int(terminal_rows)
+EXIT_STATUS = 0
 
 class exceptions_handler(object):
     func = None
@@ -35,6 +39,9 @@ class exceptions_handler(object):
         try:
             return self.func(*args, **kwargs)
         except self.exceptions as e:
+            global EXIT_STATUS
+            print("{} raised: {}".format(self.func.__name__, e))
+            EXIT_STATUS = 1
             if self.on_except_callback is not None:
                 self.on_except_callback(e)
             else:
@@ -54,6 +61,8 @@ def print_information(binary):
     format_dec = "{:<30} {:<30d}"
     print(format_str.format("Name:",         binary.name))
     print(format_hex.format("Address base:", binary.imagebase))
+    print(format_str.format("PIE:",          str(binary.is_pie)))
+    print(format_str.format("NX:",           str(binary.has_nx)))
     print("")
 
 @exceptions_handler(Exception)
@@ -64,16 +73,13 @@ def print_header(binary):
 
     print("== Header ==")
     header = binary.header
-    flags = ""
-    for flag in header.flags:
-        flag = str(flag).split(".")[-1]
-        flags += (flag if len(flags) == 0 else " - " + flag)
+    flags_str =  " - ".join([str(s).split(".")[-1] for s in header.flags_list])
 
     print(format_str.format("Magic:",              str(header.magic).split(".")[-1]))
     print(format_str.format("CPU Type:",           str(header.cpu_type).split(".")[-1]))
     print(format_hex.format("CPU sub-type:",       header.cpu_subtype))
     print(format_str.format("File Type:",          str(header.file_type).split(".")[-1]))
-    print(format_str.format("Flags:",              flags))
+    print(format_str.format("Flags:",              flags_str))
     print(format_dec.format("Number of commands:", header.nb_cmds))
     print(format_hex.format("Size of commands:",   header.sizeof_cmds))
     print(format_hex.format("Reserved:",           header.reserved))
@@ -123,11 +129,12 @@ def print_segments(binary):
             segment.name,
             segment.virtual_address,
             segment.virtual_size,
-            segment.file_size,
             segment.file_offset,
+            segment.file_size,
             segment.max_protection,
             segment.init_protection,
             sections))
+
     print("")
 
 @exceptions_handler(Exception)
@@ -196,12 +203,18 @@ def print_symbols(binary):
         maxsize = max([len(symbol.name) for symbol in symbols])
     maxsize = min(maxsize, terminal_columns - 90) if terminal_columns > 90 else terminal_columns
 
-    f_title = "|{:<" + str(maxsize) + "} |{:<6}|{:<19}|{:<16}|{:16}|"
-    f_value = "|{:<" + str(maxsize) + "} |0x{:<3x} |0x{:<16x} |0x{:<13x} |0x{:<13x} |"
+    f_title = "|{:<" + str(maxsize) + "} |{:<6}|{:<19}|{:<16}|{:16}| {:s}"
+    f_value = "|{:<" + str(maxsize) + "} |0x{:<3x} |0x{:<16x} |0x{:<13x} |0x{:<13x} | {:s}"
     print("== Symbols ==")
     print(f_title.format(
-        "Name", "Type", "Number of Sections", "Description", "Value"))
+        "Name", "Type", "Number of Sections", "Description", "Value", "Library"))
     for symbol in binary.symbols:
+        libname = ""
+        if symbol.has_binding_info and symbol.binding_info.has_library:
+            libname = symbol.binding_info.library.name
+
+
+        symbol_value = symbol.value if symbol.value > 0 or not symbol.has_binding_info else symbol.binding_info.address
 
         try:
             symbol_name = symbol.demangled_name
@@ -212,7 +225,65 @@ def print_symbols(binary):
             symbol.type,
             symbol.numberof_sections,
             symbol.description,
-            symbol.value))
+            symbol_value,
+            libname))
+    print("")
+
+@exceptions_handler(Exception)
+def print_symbol_command(binary):
+    print("== Symbol Command ==")
+
+    scmd = binary.symbol_command
+
+    format_str = "{:<17} {:<30}"
+    format_hex = "{:<17} 0x{:<28x}"
+    format_dec = "{:<17} {:<30d}"
+
+    print(format_hex.format("Symbol offset", scmd.symbol_offset))
+    print(format_dec.format("Number of symbols", scmd.numberof_symbols))
+
+    print(format_hex.format("String offset", scmd.strings_offset))
+    print(format_hex.format("String size", scmd.strings_size))
+
+    print("")
+
+@exceptions_handler(Exception)
+def print_dynamic_symbol_command(binary):
+    print("== Dynamic Symbol Command ==")
+
+    dyscmd = binary.dynamic_symbol_command
+
+    format_str = "{:<36} {:<30}"
+    format_hex = "{:<36} 0x{:<28x}"
+    format_dec = "{:<36} {:<30d}"
+
+    print(format_dec.format("First local symbol index", dyscmd.idx_local_symbol))
+    print(format_dec.format("Number of local symbols", dyscmd.nb_local_symbols))
+
+    print(format_dec.format("External symbol index", dyscmd.idx_external_define_symbol))
+    print(format_dec.format("Number of external symbols", dyscmd.nb_external_define_symbols))
+
+    print(format_dec.format("Undefined symbol index", dyscmd.idx_undefined_symbol))
+    print(format_dec.format("Number of undefined symbols", dyscmd.nb_undefined_symbols))
+
+    print(format_dec.format("Table of content offset", dyscmd.toc_offset))
+    print(format_dec.format("Number of entries in TOC", dyscmd.nb_toc))
+
+    print(format_hex.format("Module table offset", dyscmd.module_table_offset))
+    print(format_dec.format("Number of entries in module table", dyscmd.nb_module_table))
+
+    print(format_hex.format("External reference table offset", dyscmd.external_reference_symbol_offset))
+    print(format_dec.format("Number of external reference", dyscmd.nb_external_reference_symbols))
+
+    print(format_hex.format("Indirect symbols offset", dyscmd.indirect_symbol_offset))
+    print(format_dec.format("Number of indirect symbols", dyscmd.nb_indirect_symbols))
+
+    print(format_hex.format("External relocation offset", dyscmd.external_relocation_offset))
+    print(format_dec.format("Number of external relocations", dyscmd.nb_external_relocations))
+
+    print(format_hex.format("Local relocation offset", dyscmd.local_relocation_offset))
+    print(format_dec.format("Number of local relocations", dyscmd.nb_local_relocations))
+
     print("")
 
 
@@ -243,6 +314,38 @@ def print_main_command(binary):
 
 
 @exceptions_handler(Exception)
+def print_thread_command(binary):
+
+    format_str = "{:<13} {:<30}"
+    format_hex = "{:<13} 0x{:<28x}"
+    format_dec = "{:<13} {:<30d}"
+
+    print("== Thread Command ==")
+    cmd = binary.thread_command
+
+    print(format_hex.format("Flavor:", cmd.flavor))
+    print(format_hex.format("Count:",  cmd.count))
+    print(format_hex.format("PC:",     cmd.pc))
+
+    print("")
+
+@exceptions_handler(Exception)
+def print_rpath_command(binary):
+
+    format_str = "{:<13} {:<30}"
+    format_hex = "{:<13} 0x{:<28x}"
+    format_dec = "{:<13} {:<30d}"
+
+    print("== Rpath Command ==")
+    cmd = binary.rpath
+    print("Path: {}".format(cmd.path))
+
+
+    print("")
+
+
+
+@exceptions_handler(Exception)
 def print_dylinker(binary):
     print("== Dylinker ==")
     print("Path: {}".format(binary.dylinker.name))
@@ -267,6 +370,25 @@ def print_function_starts(binary):
 
     print("")
 
+@exceptions_handler(Exception)
+def print_data_in_code(binary):
+    format_str = "{:<13} {:<30}"
+    format_hex = "{:<13} 0x{:<28x}"
+    format_dec = "{:<13} {:<30d}"
+
+    print("== Data In Code ==")
+
+    datacode = binary.data_in_code
+
+    print(format_hex.format("Offset:", datacode.data_offset))
+    print(format_hex.format("Size:",   datacode.data_size))
+    print("")
+    for entry in datacode.entries:
+        type_str = str(entry.type).split(".")[-1]
+        print("- {:<14}: 0x{:x} ({:d} bytes)".format(type_str, entry.offset, entry.length))
+    print("")
+
+
 
 
 @exceptions_handler(Exception)
@@ -286,6 +408,82 @@ def print_dyld_info(binary):
 
     print("")
 
+    print("Bindings")
+    print("--------")
+    for idx, binfo in enumerate(dyld_info.bindings):
+        print("{:10}: {}".format("Class", str(binfo.binding_class).split(".")[-1]))
+        print("{:10}: {}".format("Type", str(binfo.binding_type).split(".")[-1]))
+        print("{:10}: {:x}".format("Address", binfo.address))
+
+        if binfo.has_symbol:
+            print("{:10}: {}".format("Symbol", binfo.symbol.name))
+
+        if binfo.has_segment:
+            print("{:10}: {}".format("Segment", binfo.segment.name))
+
+        if binfo.has_library:
+            print("{:10}: {}".format("Library", binfo.library.name))
+
+        print("")
+
+    print("")
+
+    print("Exports")
+    print("-------")
+    for idx, einfo in enumerate(dyld_info.exports):
+        print("{:10}: {:<10x}".format("Address", einfo.address))
+        print("{:10}: {:<10x}".format("Flags", einfo.flags))
+
+        if binfo.has_symbol:
+            print("{:10}: {}".format("Symbol", einfo.symbol.name))
+
+        print("")
+
+
+
+    print("")
+
+
+@exceptions_handler(Exception)
+def print_rebase_opcodes(binary):
+    print("== Rebase opcodes ==")
+
+    print(binary.dyld_info.show_rebases_opcodes)
+
+    print("")
+
+@exceptions_handler(Exception)
+def print_bind_opcodes(binary):
+    print("== Bind opcodes ==")
+
+    print(binary.dyld_info.show_bind_opcodes)
+
+    print("")
+
+@exceptions_handler(Exception)
+def print_weak_bind_opcodes(binary):
+    print("== Weak bind opcodes ==")
+
+    print(binary.dyld_info.show_weak_bind_opcodes)
+
+    print("")
+
+@exceptions_handler(Exception)
+def print_lazy_bind_opcodes(binary):
+    print("== Lazy bind opcodes ==")
+
+    print(binary.dyld_info.show_lazy_bind_opcodes)
+
+    print("")
+
+@exceptions_handler(Exception)
+def print_export_trie(binary):
+    print("== Export trie ==")
+
+    print(binary.dyld_info.show_export_trie)
+
+    print("")
+
 @exceptions_handler(Exception)
 def print_source_version(binary):
     print("== Source Version ==")
@@ -293,6 +491,84 @@ def print_source_version(binary):
     version = binary.source_version.version
 
     print("Version: {:d}.{:d}.{:d}.{:d}.{:d}".format(*version))
+
+    print("")
+
+
+@exceptions_handler(Exception)
+def print_version_min(binary):
+    print("== Version Min ==")
+
+    version = binary.version_min.version
+    sdk     = binary.version_min.sdk
+
+    print("Version: {:d}.{:d}.{:d}".format(*version))
+    print("SDK: {:d}.{:d}.{:d}".format(*sdk))
+
+    print("")
+
+
+@exceptions_handler(Exception)
+def print_relocations(binary):
+    print("== Relocations ==")
+
+    f_value = "|0x{address:<10x} | {size:<4d} | {type:<15} | {pcrel:<11} | {secseg:<23} | {symbol}"
+    f_title = "|{address:<12} | {size:<4} | {type:<15} | {pcrel:<11} | {secseg:<23} | {symbol}"
+
+    print(f_title.format(
+        address="Address",
+        size="Size",
+        type="Type",
+        pcrel="PC Relative",
+        secseg="Section/Section",
+        symbol="Symbol"))
+
+
+    for reloc in binary.relocations:
+        type_str = ""
+        if reloc.origin == lief.MachO.RELOCATION_ORIGINS.DYLDINFO:
+            type_str = str(lief.MachO.REBASE_TYPES(reloc.type)).split(".")[-1]
+
+        if reloc.origin == lief.MachO.RELOCATION_ORIGINS.RELOC_TABLE:
+            if reloc.architecture == MachO.CPU_TYPES.x86:
+                type_str = str(MachO.X86_RELOCATION(reloc.type))
+
+            if reloc.architecture == MachO.CPU_TYPES.x86_64:
+                type_str = str(MachO.X86_64_RELOCATION(reloc.type))
+
+            if reloc.architecture == MachO.CPU_TYPES.ARM:
+                type_str = str(MachO.ARM_RELOCATION(reloc.type))
+
+            if reloc.architecture == MachO.CPU_TYPES.ARM64:
+                type_str = str(MachO.ARM64_RELOCATION(reloc.type))
+
+            if reloc.architecture == MachO.CPU_TYPES.POWERPC:
+                type_str = str(MachO.PPC_RELOCATION(reloc.type))
+
+            type_str = type_str.split(".")[-1]
+
+        symbol_name = ""
+        if reloc.has_symbol:
+            symbol_name = reloc.symbol.name
+
+        secseg_name = ""
+        if reloc.has_segment and reloc.has_section:
+            secseg_name = "{}.{}".format(reloc.segment.name, reloc.section.name)
+        else:
+            if reloc.has_segment:
+                secseg_name = reloc.segment.name
+
+            if reloc.has_section:
+                secseg_name = reloc.section.name
+
+        print(f_value.format(
+            address=reloc.address,
+            size=reloc.size,
+            type=type_str,
+            pcrel=str(reloc.pc_relative),
+            secseg=secseg_name,
+            symbol=symbol_name))
+
 
     print("")
 
@@ -318,6 +594,10 @@ def main():
     parser.add_argument('-l', '--segments',
             action='store_true', dest='show_segments',
             help='Display Segments')
+
+    parser.add_argument('-r', '--relocations',
+            action='store_true', dest='show_relocs',
+            help='Display the relocations (if present)')
 
     parser.add_argument('-s', '--symbols',
             action='store_true', dest='show_symbols',
@@ -347,9 +627,57 @@ def main():
             action='store_true', dest='show_function_starts',
             help='Display the FunctionStarts command')
 
+    parser.add_argument('--rebase-opcodes',
+            action='store_true', dest='show_rebase_opcodes',
+            help='Display the "Rebase" opcodes')
+
     parser.add_argument('--source-version',
             action='store_true', dest='show_source_version',
             help="Display the 'Source Version' command")
+
+    parser.add_argument('--version-min',
+            action='store_true', dest='show_version_min',
+            help="Display the 'Version Min' command")
+
+    parser.add_argument('--thread-command',
+            action='store_true', dest='show_thread_command',
+            help="Display the 'Thread Command' command")
+
+    parser.add_argument('--rpath-command',
+            action='store_true', dest='show_rpath_command',
+            help="Display the 'Rpath Command' command")
+
+    parser.add_argument('--symbol-command',
+            action='store_true', dest='show_symbol_command',
+            help="Display the 'Symbol Command' command")
+
+    parser.add_argument('--dynamic-symbol-command',
+            action='store_true', dest='show_dynamic_symbol_command',
+            help="Display the 'Symbol Command' command")
+
+    parser.add_argument('--data-in-code',
+            action='store_true', dest='show_data_in_code',
+            help="Display the 'Data In Code' command")
+
+    parser.add_argument('--bind-opcodes',
+            action='store_true', dest='show_bind_opcodes',
+            help='Display the "Bind" opcodes')
+
+    parser.add_argument('--weak-bind-opcodes',
+            action='store_true', dest='show_weak_bind_opcodes',
+            help='Display the "Weak Bind" opcodes')
+
+    parser.add_argument('--lazy-bind-opcodes',
+            action='store_true', dest='show_lazy_bind_opcodes',
+            help='Display the "Lazy Bind" opcodes')
+
+    parser.add_argument('--export-trie',
+            action='store_true', dest='show_export_trie',
+            help='Display the export trie')
+
+    parser.add_argument('--opcodes',
+            action='store_true', dest='show_opcodes',
+            help='Display the bind and rebase opcodes')
 
     parser.add_argument("binary",
             metavar="<macho-file>",
@@ -403,6 +731,47 @@ def main():
 
         if (args.show_source_version or args.show_all) and binary.has_source_version:
             print_source_version(binary)
+
+        if (args.show_version_min or args.show_all) and binary.has_version_min:
+            print_version_min(binary)
+
+        if (args.show_relocs or args.show_all) and len(binary.relocations) > 0:
+            print_relocations(binary)
+
+        if (args.show_thread_command or args.show_all) and binary.has_thread_command:
+            print_thread_command(binary)
+
+        if (args.show_rpath_command or args.show_all) and binary.has_rpath:
+            print_rpath_command(binary)
+
+        if (args.show_symbol_command or args.show_all) and binary.has_symbol_command:
+            print_symbol_command(binary)
+
+        if (args.show_dynamic_symbol_command or args.show_all) and binary.has_dynamic_symbol_command:
+            print_dynamic_symbol_command(binary)
+
+        if (args.show_data_in_code or args.show_all) and binary.has_data_in_code:
+            print_data_in_code(binary)
+
+        if (args.show_rpath_command or args.show_all) and binary.has_rpath:
+            print_rpath_command(binary)
+
+        if (args.show_rebase_opcodes or args.show_opcodes) and binary.has_dyld_info:
+            print_rebase_opcodes(binary)
+
+        if (args.show_bind_opcodes  or args.show_opcodes) and binary.has_dyld_info:
+            print_bind_opcodes(binary)
+
+        if (args.show_weak_bind_opcodes or args.show_opcodes) and binary.has_dyld_info:
+            print_weak_bind_opcodes(binary)
+
+        if (args.show_lazy_bind_opcodes or args.show_opcodes) and binary.has_dyld_info:
+            print_lazy_bind_opcodes(binary)
+
+        if (args.show_export_trie or args.show_opcodes) and binary.has_dyld_info:
+            print_export_trie(binary)
+
+        sys.exit(EXIT_STATUS)
 
 
 if __name__ == "__main__":

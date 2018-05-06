@@ -15,7 +15,7 @@
  */
 #include "pyELF.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 
 #include "LIEF/ELF/DynamicEntryArray.hpp"
 #include "LIEF/ELF/DynamicEntry.hpp"
@@ -34,16 +34,52 @@ void init_ELF_DynamicEntryArray_class(py::module& m) {
   // Dynamic Entry Array object
   py::class_<DynamicEntryArray, DynamicEntry>(m, "DynamicEntryArray")
     .def(py::init<>())
+
+    .def(py::init<DYNAMIC_TAGS, uint64_t>(),
+        "Constructor with " RST_CLASS_REF(lief.ELF.DYNAMIC_TAGS) " and value",
+        "tag"_a, "value"_a)
+
     .def_property("array",
         static_cast<std::vector<uint64_t>& (DynamicEntryArray::*) (void)>(&DynamicEntryArray::array),
         static_cast<setter_t<const std::vector<uint64_t>&>>(&DynamicEntryArray::array),
-        "Return the array")
+        "Return the array",
+        py::return_value_policy::reference)
+
+    .def("insert",
+        &DynamicEntryArray::insert,
+        "Insert a ``callback`` at the given ``position``",
+        "position"_a, "callback"_a,
+        py::return_value_policy::reference)
+
+    .def("append",
+        &DynamicEntryArray::append,
+        "Append the given ``callback`` ",
+        "callback"_a,
+        py::return_value_policy::reference)
+
+    .def("remove",
+        &DynamicEntryArray::remove,
+        "Remove the given ``callback`` ",
+        "callback"_a,
+        py::return_value_policy::reference)
+
+
+    .def(py::self += uint64_t())
+    .def(py::self -= uint64_t())
+
+
+    .def("__getitem__",
+        static_cast<uint64_t& (DynamicEntryArray::*)(size_t)>(&DynamicEntryArray::operator[]),
+        py::return_value_policy::reference)
+
+    .def("__len__",
+        &DynamicEntryArray::size)
 
     .def("__eq__", &DynamicEntryArray::operator==)
     .def("__ne__", &DynamicEntryArray::operator!=)
     .def("__hash__",
         [] (const DynamicEntryArray& entry) {
-          return LIEF::Hash::hash(entry);
+          return Hash::hash(entry);
         })
 
 

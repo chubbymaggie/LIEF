@@ -18,7 +18,7 @@
 
 #include "pyELF.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 #include "LIEF/ELF/GnuHash.hpp"
 
 
@@ -30,7 +30,7 @@ using setter_t = void (GnuHash::*)(T);
 
 void init_ELF_GnuHash_class(py::module& m) {
 
-  py::class_<GnuHash>(m, "GnuHash")
+  py::class_<GnuHash, LIEF::Object>(m, "GnuHash")
     .def(py::init<>())
 
     .def_property_readonly("nb_buckets",
@@ -65,11 +65,37 @@ void init_ELF_GnuHash_class(py::module& m) {
       "Hash values",
       py::return_value_policy::reference_internal)
 
+    .def("check_bloom_filter",
+        &GnuHash::check_bloom_filter,
+        "Check if the given hash pass the bloom filter",
+        "hash"_a)
+
+    .def("check_bucket",
+        &GnuHash::check_bucket,
+        "Check if the given hash pass the bucket filter",
+        "hash"_a)
+
+    .def("check",
+        static_cast<bool(GnuHash::*)(const std::string&) const>(&GnuHash::check),
+        "Check if the symbol *probably* exists. If "
+        "the returned value is ``false`` you can assume at ``100%`` that "
+        "the symbol with the given name doesn't exists. If ``true`` you can't "
+        "do any assumption ",
+        "symbol_name"_a)
+
+    .def("check",
+        static_cast<bool(GnuHash::*)(uint32_t) const>(&GnuHash::check),
+        "Check if the symbol associated with the given *probably* exists. If "
+        "the returned value is ``false`` you can assume at ``100%`` that "
+        "the symbol doesn't exists. If ``true`` you can't "
+        "do any assumption",
+        "hash_value"_a)
+
     .def("__eq__", &GnuHash::operator==)
     .def("__ne__", &GnuHash::operator!=)
     .def("__hash__",
         [] (const GnuHash& gnuhash) {
-          return LIEF::Hash::hash(gnuhash);
+          return Hash::hash(gnuhash);
         })
 
     .def("__str__",

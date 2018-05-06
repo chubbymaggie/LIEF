@@ -16,7 +16,7 @@
 #include <string>
 #include <sstream>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 #include "LIEF/ELF/SymbolVersionRequirement.hpp"
 
 #include "pyELF.hpp"
@@ -33,7 +33,7 @@ using no_const_getter = T (SymbolVersionRequirement::*)(void);
 void init_ELF_SymbolVersionRequirement_class(py::module& m) {
 
   // Symbol Version Requirement object
-  py::class_<SymbolVersionRequirement>(m, "SymbolVersionRequirement",
+  py::class_<SymbolVersionRequirement, LIEF::Object>(m, "SymbolVersionRequirement",
       "Class which modelize an entry in ``DT_VERNEED`` or ``.gnu.version_r`` table")
 
     .def_property("version",
@@ -46,7 +46,7 @@ void init_ELF_SymbolVersionRequirement_class(py::module& m) {
         static_cast<setter_t<const std::string&>>(&SymbolVersionRequirement::name))
 
     .def("get_auxiliary_symbols",
-        static_cast<no_const_getter<it_symbols_version_aux_requirement>>(&SymbolVersionRequirement::get_auxiliary_symbols),
+        static_cast<no_const_getter<it_symbols_version_aux_requirement>>(&SymbolVersionRequirement::auxiliary_symbols),
         "Auxiliary entries",
         py::return_value_policy::reference_internal)
 
@@ -54,7 +54,7 @@ void init_ELF_SymbolVersionRequirement_class(py::module& m) {
     .def("__ne__", &SymbolVersionRequirement::operator!=)
     .def("__hash__",
         [] (const SymbolVersionRequirement& svr) {
-          return LIEF::Hash::hash(svr);
+          return Hash::hash(svr);
         })
 
     .def("__str__",

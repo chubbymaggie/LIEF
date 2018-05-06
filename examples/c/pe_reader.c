@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include <LIEF/PE.h>
+#include <LIEF/LIEF.h>
 
 
 int main(int argc, char **argv) {
@@ -131,6 +131,23 @@ int main(int argc, char **argv) {
     if (section->size > 3) {
       fprintf(stdout, "content[0..3]: %02x %02x %02x\n",
           section->content[0], section->content[1], section->content[2]);
+    }
+  }
+
+
+  fprintf(stdout, "\nImports\n");
+  fprintf(stdout,   "========\n");
+  Pe_Import_t** imports = pe_binary->imports;
+  if (imports != NULL) {
+    for (size_t i = 0; imports[i] != NULL; ++i) {
+      fprintf(stdout, "Name: %s\n", imports[i]->name);
+      Pe_ImportEntry_t** entries = imports[i]->entries;
+      for (size_t i = 0; entries[i] != NULL; ++i) {
+        if (entries[i]->name != NULL) {
+          fprintf(stdout, "   %s\n", entries[i]->name);
+        }
+      }
+
     }
   }
 

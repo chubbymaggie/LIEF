@@ -10,6 +10,17 @@ C++
   elf.rst
   pe.rst
   macho.rst
+  oat.rst
+  dex.rst
+  vdex.rst
+  art.rst
+
+
+.. toctree::
+  :caption: Platforms
+  :maxdepth: 2
+
+  platforms/android.rst
 
 Exceptions
 ----------
@@ -44,18 +55,14 @@ Exceptions
 .. doxygenclass:: LIEF::conversion_error
    :project: lief
 
-
 .. doxygenclass:: LIEF::type_error
    :project: lief
-
 
 .. doxygenclass:: LIEF::builder_error
    :project: lief
 
-
 .. doxygenclass:: LIEF::parser_error
    :project: lief
-
 
 .. doxygenclass:: LIEF::pe_error
    :project: lief
@@ -67,7 +74,6 @@ Exceptions
 Iterators
 ---------
 
-
 .. doxygenclass:: LIEF::ref_iterator
    :project: lief
 
@@ -78,6 +84,18 @@ Iterators
    :project: lief
 
 .. doxygenclass:: LIEF::const_filter_iterator
+   :project: lief
+
+Logging
+-------
+
+.. doxygenclass:: LIEF::Logger
+   :project: lief
+
+Logging levels
+~~~~~~~~~~~~~~
+
+.. doxygenenum:: LIEF::LOGGING_LEVEL
    :project: lief
 
 

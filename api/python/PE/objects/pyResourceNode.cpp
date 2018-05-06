@@ -15,7 +15,8 @@
  */
 #include "pyPE.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
+#include "LIEF/utils.hpp"
 #include "LIEF/PE/ResourceNode.hpp"
 
 #include <string>
@@ -28,7 +29,7 @@ template<class T>
 using setter_t = void (ResourceNode::*)(T);
 
 void init_PE_ResourceNode_class(py::module& m) {
-  py::class_<ResourceNode>(m, "ResourceNode")
+  py::class_<ResourceNode, LIEF::Object>(m, "ResourceNode")
 
     .def_property("id",
         static_cast<getter_t<uint32_t>>(&ResourceNode::id),
@@ -50,7 +51,7 @@ void init_PE_ResourceNode_class(py::module& m) {
 
     .def_property("name",
         [] (const ResourceNode& node) {
-          return safe_string_converter(u16tou8(node.name()));
+          return safe_string_converter(LIEF::u16tou8(node.name()));
         },
         static_cast<void (ResourceNode::*)(const std::string&)>(&ResourceNode::name),
         "Resource name")
@@ -92,7 +93,7 @@ void init_PE_ResourceNode_class(py::module& m) {
 
     .def("__hash__",
         [] (const ResourceNode& node) {
-          return LIEF::Hash::hash(node);
+          return Hash::hash(node);
         })
 
     .def("__str__",

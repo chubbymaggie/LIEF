@@ -13,10 +13,104 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "LIEF/Abstract/Abstract.hpp"
+#include "LIEF/Abstract.hpp"
 #include "LIEF/visitors/json.hpp"
 #include "LIEF/Abstract/EnumToString.hpp"
+
+#if defined(LIEF_PE_SUPPORT)
+#include "LIEF/PE/json.hpp"
+#endif
+
+#if defined(LIEF_ELF_SUPPORT)
+#include "LIEF/ELF/json.hpp"
+#endif
+
+#if defined(LIEF_OAT_SUPPORT)
+#include "LIEF/OAT/json.hpp"
+#endif
+
+#if defined(LIEF_ART_SUPPORT)
+#include "LIEF/ART/json.hpp"
+#endif
+
+#if defined(LIEF_DEX_SUPPORT)
+#include "LIEF/DEX/json.hpp"
+#endif
+
+#if defined(LIEF_VDEX_SUPPORT)
+#include "LIEF/VDEX/json.hpp"
+#endif
+
+#include "LIEF/config.h"
+
 namespace LIEF {
+
+json to_json(const Object& v) {
+  json node;
+#if defined(LIEF_PE_SUPPORT)
+  PE::JsonVisitor pe_visitor;
+  pe_visitor(v);
+  const json& pejson = pe_visitor.get();
+  if (pejson.type() != json::value_t::null) {
+    node.update(std::move(pejson));
+  }
+#endif
+
+#if defined(LIEF_ELF_SUPPORT)
+  ELF::JsonVisitor elf_visitor;
+  elf_visitor(v);
+  const json& elfjson = elf_visitor.get();
+  if (elfjson.type() != json::value_t::null) {
+    node.update(std::move(elfjson));
+  }
+#endif
+
+
+#if defined(LIEF_OAT_SUPPORT)
+  OAT::JsonVisitor oat_visitor;
+  oat_visitor(v);
+  const json& oatjson = oat_visitor.get();
+  if (oatjson.type() != json::value_t::null) {
+    node.update(std::move(oatjson));
+  }
+#endif
+
+
+#if defined(LIEF_ART_SUPPORT)
+  ART::JsonVisitor art_visitor;
+  art_visitor(v);
+  const json& artjson = art_visitor.get();
+  if (artjson.type() != json::value_t::null) {
+    node.update(std::move(artjson));
+  }
+#endif
+
+#if defined(LIEF_DEX_SUPPORT)
+  DEX::JsonVisitor dex_visitor;
+  dex_visitor(v);
+  const json& dexjson = dex_visitor.get();
+  if (dexjson.type() != json::value_t::null) {
+    node.update(std::move(dexjson));
+  }
+#endif
+
+
+#if defined(LIEF_VDEX_SUPPORT)
+  VDEX::JsonVisitor vdex_visitor;
+  vdex_visitor(v);
+  const json& vdexjson = vdex_visitor.get();
+  if (vdexjson.type() != json::value_t::null) {
+    node.update(std::move(vdexjson));
+  }
+#endif
+
+
+  return node;
+}
+
+std::string to_json_str(const Object& v) {
+  return to_json(v).dump();
+}
 
 JsonVisitor::JsonVisitor(void) :
   node_{}
@@ -29,66 +123,9 @@ JsonVisitor::JsonVisitor(const json& node) :
 JsonVisitor::JsonVisitor(const JsonVisitor&)            = default;
 JsonVisitor& JsonVisitor::operator=(const JsonVisitor&) = default;
 
-void JsonVisitor::visit(const Binary& binary) {
-  JsonVisitor header_visitor;
-  header_visitor(binary.get_header());
-  std::vector<json> sections_json, symbols_json;
-
-  for (const Section& section : const_cast<Binary*>(&binary)->get_sections()) {
-    JsonVisitor section_visitor;
-    section_visitor(section);
-    sections_json.emplace_back(section_visitor.get());
-  }
-
-
-  for (const Symbol& symbol : const_cast<Binary*>(&binary)->get_symbols()) {
-    JsonVisitor visitor;
-    visitor(symbol);
-    symbols_json.emplace_back(visitor.get());
-  }
-
-
-  this->node_["name"]               = binary.name();
-  this->node_["entrypoint"]         = binary.entrypoint();
-  this->node_["format"]             = to_string(binary.format());
-  this->node_["original_size"]      = binary.original_size();
-  this->node_["exported_functions"] = binary.get_exported_functions();
-  this->node_["imported_libraries"] = binary.get_imported_libraries();
-  this->node_["imported_functions"] = binary.get_imported_functions();
-  this->node_["header"]             = header_visitor.get();
-  this->node_["sections"]           = sections_json;
-  this->node_["symbols"]            = symbols_json;
-}
-
-
-void JsonVisitor::visit(const Header& header) {
-  std::vector<std::string> modes;
-  modes.reserve(header.modes().size());
-  for (MODES m : header.modes()) {
-    modes.push_back(to_string(m));
-  }
-  this->node_["architecture"] = to_string(header.architecture());
-  this->node_["object_type"]  = to_string(header.object_type());
-  this->node_["entrypoint"]   = header.entrypoint();
-  this->node_["endianness"]   = to_string(header.endianness());
-}
-
-
-void JsonVisitor::visit(const Section& section) {
-  this->node_["name"]            = section.name();
-  this->node_["size"]            = section.size();
-  this->node_["offset"]          = section.offset();
-  this->node_["virtual_address"] = section.virtual_address();
-}
-
-
-void JsonVisitor::visit(const Symbol& symbol) {
-  this->node_["name"] = symbol.name();
-}
-
-
 const json& JsonVisitor::get(void) const {
   return this->node_;
 }
 
 }
+

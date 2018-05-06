@@ -35,6 +35,7 @@
 #include "LIEF/PE/OptionalHeader.h"
 #include "LIEF/PE/DataDirectory.h"
 #include "LIEF/PE/Section.h"
+#include "LIEF/PE/Import.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,14 +50,15 @@ struct Pe_Binary_t {
   Pe_OptionalHeader_t  optional_header;
   Pe_DataDirectory_t** data_directories;
   Pe_Section_t**       sections;
+  Pe_Import_t**        imports;
 };
 
 typedef struct Pe_Binary_t Pe_Binary_t;
 
 /** @brief Wrapper on LIEF::PE::Parser::parse */
-DLL_PUBLIC Pe_Binary_t* pe_parse(const char *file);
+LIEF_API Pe_Binary_t* pe_parse(const char *file);
 
-DLL_PUBLIC void pe_binary_destroy(Pe_Binary_t* binary);
+LIEF_API void pe_binary_destroy(Pe_Binary_t* binary);
 
 #ifdef __cplusplus
 }

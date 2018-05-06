@@ -18,7 +18,7 @@
 
 #include "pyELF.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 #include "LIEF/ELF/Note.hpp"
 
 template<class T>
@@ -29,9 +29,13 @@ using setter_t = void (Note::*)(T);
 
 void init_ELF_Note_class(py::module& m) {
 
-  py::class_<Note>(m, "Note")
-    .def(py::init<>())
-    .def(py::init<const std::string&, uint32_t, const std::vector<uint8_t>&>())
+  py::class_<Note, LIEF::Object>(m, "Note")
+    .def(py::init<>(),
+        "Default ctor")
+
+    .def(py::init<const std::string&, NOTE_TYPES, const std::vector<uint8_t>&>(),
+        "Ctor from ``name``, ``type`` and ``description``",
+        "name"_a, "type"_a, "description"_a)
 
     .def_property("name",
         static_cast<getter_t<const std::string&>>(&Note::name),
@@ -40,14 +44,14 @@ void init_ELF_Note_class(py::module& m) {
         )
 
     .def_property("type",
-        static_cast<getter_t<uint32_t>>(&Note::type),
-        static_cast<setter_t<uint32_t>>(&Note::type),
+        static_cast<getter_t<NOTE_TYPES>>(&Note::type),
+        static_cast<setter_t<NOTE_TYPES>>(&Note::type),
         "Return the type of the note. Can be one of the " RST_CLASS_REF(lief.ELF.NOTE_TYPES) " values"
         )
 
     .def_property("description",
-        static_cast<getter_t<const std::vector<uint8_t>&>>(&Note::description),
-        static_cast<setter_t<const std::vector<uint8_t>&>>(&Note::description),
+        static_cast<getter_t<const Note::description_t&>>(&Note::description),
+        static_cast<setter_t<const Note::description_t&>>(&Note::description),
         "Return the description associated with the note"
         )
 
@@ -57,7 +61,7 @@ void init_ELF_Note_class(py::module& m) {
         )
 
     .def_property_readonly("version",
-        static_cast<getter_t<std::tuple<uint32_t, uint32_t, uint32_t>>>(&Note::version),
+        static_cast<getter_t<Note::version_t>>(&Note::version),
         "Return the target version as ``(Major, Minor, Patch)``. Require a :attr:`~lief.ELF.NOTE_TYPES.ABI_TAG` :attr:`~lief.ELF.Note.type`"
         )
 
@@ -65,7 +69,7 @@ void init_ELF_Note_class(py::module& m) {
     .def("__ne__", &Note::operator!=)
     .def("__hash__",
         [] (const Note& note) {
-          return LIEF::Hash::hash(note);
+          return Hash::hash(note);
         })
 
     .def("__str__",

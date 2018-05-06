@@ -17,7 +17,7 @@
 #include <sstream>
 #include <vector>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 #include "LIEF/ELF/Segment.hpp"
 
 #include "pyELF.hpp"
@@ -33,7 +33,7 @@ using no_const_getter = T (Segment::*)(void);
 
 
 void init_ELF_Segment_class(py::module& m) {
-  py::class_<Segment>(m, "Segment")
+  py::class_<Segment, LIEF::Object>(m, "Segment")
 
     .def(py::init<>())
     .def(py::init<const std::vector<uint8_t>&>())
@@ -44,9 +44,9 @@ void init_ELF_Segment_class(py::module& m) {
         static_cast<setter_t<SEGMENT_TYPES>>(&Segment::type),
         "Segment's " RST_CLASS_REF(lief.ELF.SEGMENT_TYPES) "")
 
-    .def_property("flag",
-        static_cast<getter_t<uint32_t>>(&Segment::flag),
-        static_cast<setter_t<uint32_t>>(&Segment::flag),
+    .def_property("flags",
+        static_cast<getter_t<ELF_SEGMENT_FLAGS>>(&Segment::flags),
+        static_cast<setter_t<ELF_SEGMENT_FLAGS>>(&Segment::flags),
         "Segment's flags")
 
     .def_property("file_offset",
@@ -90,25 +90,64 @@ void init_ELF_Segment_class(py::module& m) {
         static_cast<setter_t<const std::vector<uint8_t>&>>(&Segment::content),
         "Segment's raw data")
 
+    .def("add",
+        &Segment::add,
+        "Add the given " RST_CLASS_REF(lief.ELF.SEGMENT_FLAGS) " to the list of "
+        ":attr:`~lief.ELF.Segment.flags`",
+        "flag"_a)
+
+    .def("remove",
+        &Segment::remove,
+        "Remove the given " RST_CLASS_REF(lief.ELF.SEGMENT_FLAGS) " to the list of "
+        ":attr:`~lief.ELF.Segment.flags`",
+        "flag"_a)
+
+
+    .def("has",
+        static_cast<bool (Segment::*)(ELF_SEGMENT_FLAGS) const>(&Segment::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.SEGMENT_FLAGS) " is present",
+        "flag"_a)
+
+    .def("has",
+        static_cast<bool (Segment::*)(const Section&) const>(&Segment::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.Section) " is present "
+        "in :attr:`~lief.ELF.Segment.sections`",
+        "section"_a)
+
+    .def("has",
+        static_cast<bool (Segment::*)(const std::string&) const>(&Segment::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.Section) " 's name is present "
+        "in :attr:`~lief.ELF.Segment.sections`",
+        "section_name"_a)
+
     .def_property_readonly("sections",
       static_cast<no_const_getter<it_sections>>(&Segment::sections),
       "" RST_CLASS_REF(lief.ELF.Section) " (s) inside this segment",
       py::return_value_policy::reference_internal)
 
-    .def("__contains__",
-        [] (const Segment& segment, SEGMENT_FLAGS flag) -> bool
-        {
-          return segment.has_flag(flag);
-        }
-        , "Test if the current segment has the given flag")
-
-
     .def("__eq__", &Segment::operator==)
     .def("__ne__", &Segment::operator!=)
     .def("__hash__",
         [] (const Segment& segment) {
-          return LIEF::Hash::hash(segment);
+          return Hash::hash(segment);
         })
+
+    .def(py::self += ELF_SEGMENT_FLAGS())
+    .def(py::self -= ELF_SEGMENT_FLAGS())
+
+    .def("__contains__",
+        static_cast<bool (Segment::*)(ELF_SEGMENT_FLAGS) const>(&Segment::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.SEGMENT_FLAGS) " is present")
+
+    .def("__contains__",
+        static_cast<bool (Segment::*)(const Section&) const>(&Segment::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.Section) " is present "
+        "in :attr:`~lief.ELF.Segment.sections`")
+
+    .def("__contains__",
+        static_cast<bool (Segment::*)(const std::string&) const>(&Segment::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.Section) " 's name is present "
+        "in :attr:`~lief.ELF.Segment.sections`")
 
     .def("__str__",
         [] (const Segment& segment)

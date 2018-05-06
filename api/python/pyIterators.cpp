@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "LIEF/config.h"
 #include "pyLIEF.hpp"
 #include "pyIterators.hpp"
 
@@ -23,10 +24,11 @@ void init_LIEF_iterators(py::module& m) {
   // ========
   init_ref_iterator<LIEF::it_sections>(m);
   init_ref_iterator<LIEF::it_symbols>(m);
+  init_ref_iterator<LIEF::it_relocations>(m);
 
   // ELF
   // ===
-#if defined(LIEF_ELF_MODULE)
+#if defined(LIEF_ELF_SUPPORT)
   init_ref_iterator<LIEF::ELF::it_sections>(m);
   init_ref_iterator<LIEF::ELF::it_segments>(m);
   init_ref_iterator<LIEF::ELF::it_dynamic_entries>(m);
@@ -44,10 +46,11 @@ void init_LIEF_iterators(py::module& m) {
 
   // PE
   // ==
-#if defined(LIEF_PE_MODULE)
+#if defined(LIEF_PE_SUPPORT)
   init_ref_iterator<LIEF::PE::it_sections>(m);
   init_ref_iterator<LIEF::PE::it_data_directories>(m);
   init_ref_iterator<LIEF::PE::it_relocations>(m);
+  init_ref_iterator<LIEF::PE::it_relocation_entries>(m);
   init_ref_iterator<LIEF::PE::it_imports>(m);
   init_ref_iterator<LIEF::PE::it_import_entries>(m);
   init_ref_iterator<LIEF::PE::it_export_entries>(m);
@@ -55,12 +58,14 @@ void init_LIEF_iterators(py::module& m) {
   init_ref_iterator<LIEF::PE::it_const_crt>(m);
   init_ref_iterator<LIEF::PE::it_childs>(m);
   init_ref_iterator<LIEF::PE::it_rich_entries>(m);
+  init_ref_iterator<LIEF::PE::it_const_dialog_items>(m);
 #endif
 
 
   // MachO
   // =====
-#if defined(LIEF_MACHO_MODULE)
+#if defined(LIEF_MACHO_SUPPORT)
+  init_ref_iterator<LIEF::MachO::it_binaries>(m);
   init_ref_iterator<LIEF::MachO::it_relocations>(m);
   init_ref_iterator<LIEF::MachO::it_commands>(m);
   init_ref_iterator<LIEF::MachO::it_symbols>(m);
@@ -68,6 +73,8 @@ void init_LIEF_iterators(py::module& m) {
   init_ref_iterator<LIEF::MachO::it_libraries>(m);
   init_ref_iterator<LIEF::MachO::it_segments>(m);
   init_ref_iterator<LIEF::MachO::it_sections>(m);
+  init_ref_iterator<LIEF::MachO::it_binding_info>(m);
+  init_ref_iterator<LIEF::MachO::it_export_info>(m);
 #endif
 
 }

@@ -19,5 +19,6 @@
 #include <LIEF/MachO.h>
 #include <LIEF/PE.h>
 #include <LIEF/ELF.h>
+#include <LIEF/logging.h>
 
 #endif

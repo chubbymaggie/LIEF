@@ -49,6 +49,17 @@ Symbol
   :undoc-members:
 
 
+----------
+
+Relocation
+**********
+
+.. autoclass:: lief.Relocation
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
 Enums
 *****
 
@@ -102,4 +113,15 @@ Endianness
   :members:
   :inherited-members:
   :undoc-members:
+
+----------
+
+Virtual Address Types
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.Binary.VA_TYPES
+  :members:
+  :inherited-members:
+  :undoc-members:
+
 

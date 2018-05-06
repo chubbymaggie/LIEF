@@ -41,6 +41,15 @@ Symbol
    :project: lief
 
 
+----------
+
+Relocation
+**********
+
+.. doxygenclass:: LIEF::Relocation
+   :project: lief
+
+
 Enums
 *****
 
@@ -57,6 +66,9 @@ Enums
    :project: lief
 
 .. doxygenenum:: LIEF::ENDIANNESS
+   :project: lief
+
+.. doxygenenum:: LIEF::Binary::VA_TYPES
    :project: lief
 
 

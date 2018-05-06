@@ -16,7 +16,10 @@
 #ifndef LIEF_ELF_TYPE_TRAITS_H_
 #define LIEF_ELF_TYPE_TRAITS_H_
 #include <vector>
+#include <set>
 #include "LIEF/iterators.hpp"
+
+#include "LIEF/ELF/Structures.hpp"
 
 namespace LIEF {
 namespace ELF {
@@ -46,8 +49,8 @@ using it_dynamic_entries                       = ref_iterator<dynamic_entries_t&
 using it_const_dynamic_entries                 = const_ref_iterator<const dynamic_entries_t&>;
 
 using symbols_t                                = std::vector<Symbol*>;
-using it_symbols                               = ref_iterator<symbols_t&>;
-using it_const_symbols                         = const_ref_iterator<const symbols_t&>;
+using it_symbols                               = ref_iterator<symbols_t>;
+using it_const_symbols                         = const_ref_iterator<symbols_t>;
 
 using relocations_t                            = std::vector<Relocation*>;
 
@@ -89,9 +92,18 @@ using symbols_version_aux_requirement_t        = std::vector<SymbolVersionAuxReq
 using it_symbols_version_aux_requirement       = ref_iterator<symbols_version_aux_requirement_t&>;
 using it_const_symbols_version_aux_requirement = const_ref_iterator<const symbols_version_aux_requirement_t&>;
 
-using notes_t                                  = std::vector<Note>;
+using notes_t                                  = std::vector<Note*>;
 using it_notes                                 = ref_iterator<notes_t&>;
 using it_const_notes                           = const_ref_iterator<const notes_t&>;
+
+template<class T>
+using flags_list_t = std::set<T>;
+
+using arm_flags_list_t     = flags_list_t<ARM_EFLAGS>;
+using mips_flags_list_t    = flags_list_t<MIPS_EFLAGS>;
+using hexagon_flags_list_t = flags_list_t<HEXAGON_EFLAGS>;
+using ppc64_flags_list_t   = flags_list_t<PPC64_EFLAGS>;
+
 }
 }
 

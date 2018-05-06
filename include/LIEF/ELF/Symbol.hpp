@@ -34,7 +34,7 @@ namespace ELF {
 class Parser;
 class Binary;
 
-class DLL_PUBLIC Symbol : public LIEF::Symbol {
+class LIEF_API Symbol : public LIEF::Symbol {
   friend class Parser;
   friend class Binary;
 
@@ -42,7 +42,7 @@ class DLL_PUBLIC Symbol : public LIEF::Symbol {
     Symbol(const Elf32_Sym* header);
     Symbol(const Elf64_Sym* header);
     Symbol(std::string name,
-        SYMBOL_TYPES type = SYMBOL_TYPES::STT_NOTYPE,
+        ELF_SYMBOL_TYPES type = ELF_SYMBOL_TYPES::STT_NOTYPE,
         SYMBOL_BINDINGS binding = SYMBOL_BINDINGS::STB_WEAK,
         uint8_t other = 0, uint16_t shndx = 0,
         uint64_t value = 0, uint64_t size = 0);
@@ -54,7 +54,7 @@ class DLL_PUBLIC Symbol : public LIEF::Symbol {
     void swap(Symbol& other);
 
     //! @brief A symbol's type provides a general classification for the associated entity
-    SYMBOL_TYPES type(void) const;
+    ELF_SYMBOL_TYPES type(void) const;
 
     //! @brief A symbol's binding determines the linkage visibility and behavior
     SYMBOL_BINDINGS binding(void) const;
@@ -67,6 +67,8 @@ class DLL_PUBLIC Symbol : public LIEF::Symbol {
 
     //! @brief @link ELF::Section section@endlink index associated with the symbol
     uint16_t section_idx(void) const;
+
+    ELF_SYMBOL_VISIBILITY visibility(void) const;
 
     Section& section(void);
 
@@ -100,13 +102,18 @@ class DLL_PUBLIC Symbol : public LIEF::Symbol {
     //! @brief Symbol's unmangled name
     std::string demangled_name(void) const;
 
-    void type(SYMBOL_TYPES type);
+    void type(ELF_SYMBOL_TYPES type);
     void binding(SYMBOL_BINDINGS binding);
     void other(uint8_t other);
+    void visibility(ELF_SYMBOL_VISIBILITY visibility);
     void value(uint64_t value);
     void size(uint64_t size);
     void information(uint8_t info);
     void shndx(uint16_t idx);
+
+    inline void shndx(SYMBOL_SECTION_INDEX idx) {
+      this->shndx_ = static_cast<uint16_t>(idx);
+    }
 
     //! @brief Check if the current symbol is exported
     bool is_exported(void) const;
@@ -120,22 +127,38 @@ class DLL_PUBLIC Symbol : public LIEF::Symbol {
     //! @brief Set whether or not the symbol is imported
     void set_imported(bool flag = true);
 
+
+    //! True if the symbol is a static one
+    inline bool is_static(void) const {
+      return this->binding() == SYMBOL_BINDINGS::STB_GLOBAL;
+    }
+
+    //! True if the symbol represent a function
+    inline bool is_function(void) const {
+      return this->type() == ELF_SYMBOL_TYPES::STT_FUNC;
+    }
+
+    //! True if the symbol represent a variable
+    inline bool is_variable(void) const {
+      return this->type() == ELF_SYMBOL_TYPES::STT_OBJECT;
+    }
+
     virtual void accept(Visitor& visitor) const override;
 
     bool operator==(const Symbol& rhs) const;
     bool operator!=(const Symbol& rhs) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Symbol& entry);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Symbol& entry);
 
   private:
-    SYMBOL_TYPES    type_;
-    SYMBOL_BINDINGS binding_;
-    uint8_t         other_;
-    uint16_t        shndx_;
-    Section*        section_;
-    uint64_t        value_;
-    uint64_t        size_;
-    SymbolVersion*  symbol_version_;
+    ELF_SYMBOL_TYPES type_;
+    SYMBOL_BINDINGS  binding_;
+    uint8_t          other_;
+    uint16_t         shndx_;
+    Section*         section_;
+    uint64_t         value_;
+    uint64_t         size_;
+    SymbolVersion*   symbol_version_;
 
 };
 }

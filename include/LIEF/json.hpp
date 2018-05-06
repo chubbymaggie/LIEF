@@ -15,8 +15,13 @@
  */
 #ifndef LIEF_JSON_H_
 #define LIEF_JSON_H_
+
+#include <LIEF/config.h>
+
+#ifdef LIEF_JSON_SUPPORT
 #include <json.hpp>
 
 using json = nlohmann::json;
+#endif
 
 #endif

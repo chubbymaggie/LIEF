@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/MachO/hash.hpp"
 
 #include "LIEF/MachO/SymbolCommand.hpp"
 
@@ -25,16 +25,13 @@ SymbolCommand& SymbolCommand::operator=(const SymbolCommand&) = default;
 SymbolCommand::SymbolCommand(const SymbolCommand&) = default;
 SymbolCommand::~SymbolCommand(void) = default;
 
-SymbolCommand::SymbolCommand(const symtab_command *command) :
-  symbolOffset_{command->symoff},
-  numberOfSymbols_{command->nsyms},
-  stringsOffset_{command->stroff},
-  stringsSize_{command->strsize}
-{
-  this->command_ = static_cast<LOAD_COMMAND_TYPES>(command->cmd);
-  this->size_    = command->cmdsize;
-}
-
+SymbolCommand::SymbolCommand(const symtab_command *cmd) :
+  LoadCommand::LoadCommand{static_cast<LOAD_COMMAND_TYPES>(cmd->cmd), cmd->cmdsize},
+  symbolOffset_{cmd->symoff},
+  numberOfSymbols_{cmd->nsyms},
+  stringsOffset_{cmd->stroff},
+  stringsSize_{cmd->strsize}
+{}
 
 uint32_t SymbolCommand::symbol_offset(void) const {
   return this->symbolOffset_;
@@ -56,7 +53,7 @@ void SymbolCommand::symbol_offset(uint32_t offset) {
   this->symbolOffset_ = offset;
 }
 
-void SymbolCommand::numberof_symbol(uint32_t nb) {
+void SymbolCommand::numberof_symbols(uint32_t nb) {
   this->numberOfSymbols_ = nb;
 }
 
@@ -69,12 +66,7 @@ void SymbolCommand::strings_size(uint32_t size) {
 }
 
 void SymbolCommand::accept(Visitor& visitor) const {
-  LoadCommand::accept(visitor);
-
-  visitor.visit(this->symbol_offset());
-  visitor.visit(this->numberof_symbols());
-  visitor.visit(this->strings_offset());
-  visitor.visit(this->strings_size());
+  visitor.visit(*this);
 }
 
 

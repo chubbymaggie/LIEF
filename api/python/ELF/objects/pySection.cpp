@@ -15,7 +15,7 @@
  */
 #include "pyELF.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 #include "LIEF/Abstract/Section.hpp"
 #include "LIEF/ELF/Section.hpp"
 
@@ -35,7 +35,12 @@ void init_ELF_Section_class(py::module& m) {
 
   // Section object
   py::class_<Section, LIEF::Section>(m, "Section")
-    .def(py::init<>())
+    .def(py::init<>(),
+        "Default constructor")
+
+    .def(py::init<const std::string&, ELF_SECTION_TYPES>(),
+        "Constructor from name and type",
+        "name"_a, "type"_a = ELF_SECTION_TYPES::SHT_PROGBITS)
 
     .def("__init__",
         [] (Section& section, std::vector<uint8_t>& content, ELF_CLASS type)
@@ -49,14 +54,18 @@ void init_ELF_Section_class(py::module& m) {
         ".. warning:: The value will probably change when re-building binary.")
 
     .def_property("type",
-        static_cast<getter_t<SECTION_TYPES>>(&Section::type),
-        static_cast<setter_t<SECTION_TYPES>>(&Section::type),
+        static_cast<getter_t<ELF_SECTION_TYPES>>(&Section::type),
+        static_cast<setter_t<ELF_SECTION_TYPES>>(&Section::type),
         "Return a " RST_CLASS_REF(lief.ELF.SECTION_TYPES) "")
 
     .def_property("flags",
         static_cast<getter_t<uint64_t>>(&Section::flags),
         static_cast<setter_t<uint64_t>>(&Section::flags),
-        "Return sections " RST_CLASS_REF(lief.ELF.SECTION_FLAGS) "")
+        "Return section's flags as an integer")
+
+    .def_property_readonly("flags_list",
+        &Section::flags_list,
+        "Return section's flags as a list of " RST_CLASS_REF(lief.ELF.SECTION_FLAGS) "")
 
     .def_property("virtual_address",
         static_cast<getter_t<uint64_t>>(&Section::virtual_address),
@@ -103,19 +112,55 @@ void init_ELF_Section_class(py::module& m) {
       "Return segment(s) associated with the given section",
       py::return_value_policy::reference_internal)
 
-    .def("__contains__",
-        [] (const Section &section, SECTION_FLAGS flag)
-        {
-          return section.has_flag(flag);
-        }, "Test if the current section has the given flag")
+    .def("clear",
+      &Section::clear,
+      "Clear the content of the section with the given ``value``",
+      "value"_a = 0,
+      py::return_value_policy::reference)
 
+    .def("add",
+        &Section::add,
+        "Add the given " RST_CLASS_REF(lief.ELF.SECTION_FLAGS) " to the list of "
+        ":attr:`~lief.ELF.Section.flags`",
+        "flag"_a)
+
+    .def("remove",
+        &Section::remove,
+        "Remove the given " RST_CLASS_REF(lief.ELF.SECTION_FLAGS) " to the list of "
+        ":attr:`~lief.ELF.Section.flags`",
+        "flag"_a)
+
+
+    .def("has",
+        static_cast<bool (Section::*)(ELF_SECTION_FLAGS) const>(&Section::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.SECTION_FLAGS) " is present",
+        "flag"_a)
+
+    .def("has",
+        static_cast<bool (Section::*)(const Segment&) const>(&Section::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.Segment) " is present "
+        "in :attr:`~lief.ELF.Section.segments`",
+        "segment"_a)
 
     .def("__eq__", &Section::operator==)
     .def("__ne__", &Section::operator!=)
     .def("__hash__",
         [] (const Section& section) {
-          return LIEF::Hash::hash(section);
+          return Hash::hash(section);
         })
+
+    .def(py::self += ELF_SECTION_FLAGS())
+    .def(py::self -= ELF_SECTION_FLAGS())
+
+    .def("__contains__",
+        static_cast<bool (Section::*)(ELF_SECTION_FLAGS) const>(&Section::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.SECTION_FLAGS) " is present")
+
+
+    .def("__contains__",
+        static_cast<bool (Section::*)(const Segment&) const>(&Section::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.Segment) " is present "
+        "in :attr:`~lief.ELF.Section.segments`")
 
     .def("__str__",
         [] (const Section& section)

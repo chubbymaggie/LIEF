@@ -11,7 +11,13 @@ macro(ADD_PE_TEST name sources)
   if (MSVC)
     target_compile_options(${name}        PUBLIC /FIiso646.h)
     target_compile_options(${name}_shared PUBLIC /FIiso646.h)
-	target_compile_options(${name}_shared PUBLIC /MT)
+
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
+      target_compile_options("${name}_shared" PUBLIC /MTd)
+    else()
+      target_compile_options("${name}_shared" PUBLIC /MT)
+    endif()
+
 	set_property(TARGET ${name} ${name}_shared PROPERTY LINK_FLAGS /NODEFAULTLIB:MSVCRT)
   endif()
 
@@ -44,8 +50,13 @@ macro(ADD_PE_TEST name sources)
   target_link_libraries(${name}        PUBLIC LIB_LIEF_STATIC ${YAMLCPP_LIBRARY_RELEASE})
   target_link_libraries(${name}_shared PUBLIC LIB_LIEF_SHARED ${YAMLCPP_LIBRARY_RELEASE})
 
-  add_test(${name}         ${CMAKE_CURRENT_BINARY_DIR}/${name})
-  add_test(${name}_shared  ${CMAKE_CURRENT_BINARY_DIR}/${name}_shared)
+  if (LIEF_TEST_STATIC)
+    add_test(${name} ${CMAKE_CURRENT_BINARY_DIR}/${name})
+  endif()
+
+  if (LIEF_TEST_SHARED)
+    add_test(${name}_shared ${CMAKE_CURRENT_BINARY_DIR}/${name}_shared)
+  endif()
 
 endmacro()
 
@@ -118,6 +129,10 @@ if (PYTHON_TESTS_ENABLED)
     "${LIEF_EXAMPLES_DIRECTORY}/python/pe_reader.py \
     ${LIEF_SAMPLES_DIRECTORY}/PE/PE32_x86_library_kernel32.dll")
 
+  ADD_PYTHON_TEST(PE_PYTHON_pe
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_pe.py")
+
   ADD_PYTHON_TEST(PE_PYTHON_hooking
     ${PYTHON_EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/test_hooking.py")
@@ -129,6 +144,14 @@ if (PYTHON_TESTS_ENABLED)
   ADD_PYTHON_TEST(PE_PYTHON_imphash
     ${PYTHON_EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/test_imphash.py")
+
+  ADD_PYTHON_TEST(PE_PYTHON_builder
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_builder.py")
+
+  ADD_PYTHON_TEST(PE_PYTHON_load_configuration
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_loadconfig.py")
 
 endif()
 

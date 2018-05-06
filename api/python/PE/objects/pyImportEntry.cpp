@@ -17,7 +17,7 @@
 #include <string>
 #include <sstream>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 #include "LIEF/PE/ImportEntry.hpp"
 
 #include "pyPE.hpp"
@@ -29,7 +29,7 @@ template<class T>
 using setter_t = void (ImportEntry::*)(T);
 
 void init_PE_ImportEntry_class(py::module& m) {
-  py::class_<ImportEntry>(m, "ImportEntry")
+  py::class_<ImportEntry, LIEF::Object>(m, "ImportEntry")
     .def(py::init<>())
 
     .def(py::init<const std::string&>(),
@@ -58,7 +58,7 @@ void init_PE_ImportEntry_class(py::module& m) {
 
     .def_property_readonly("ordinal",
         &ImportEntry::ordinal,
-        "``True`` if ordinal is used")
+        "Ordinal value (if any). See: :attr:`~lief.PE.ImportEntry.is_ordinal`")
 
     .def_property_readonly("hint",
         &ImportEntry::hint,
@@ -78,7 +78,7 @@ void init_PE_ImportEntry_class(py::module& m) {
     .def("__ne__", &ImportEntry::operator!=)
     .def("__hash__",
         [] (const ImportEntry& import_entry) {
-          return LIEF::Hash::hash(import_entry);
+          return Hash::hash(import_entry);
         })
 
     .def("__str__", [] (const ImportEntry& importEntry)

@@ -19,7 +19,7 @@
 #include <iostream>
 #include <set>
 
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 #include "LIEF/visibility.h"
 
 #include "LIEF/Abstract/enums.hpp"
@@ -28,7 +28,7 @@
 
 namespace LIEF {
 namespace MachO {
-class DLL_PUBLIC Header : public Visitable {
+class LIEF_API Header : public Object {
   public:
     Header(void);
     Header(const mach_header_64 *header);
@@ -44,11 +44,13 @@ class DLL_PUBLIC Header : public Visitable {
     uint32_t               cpu_subtype(void) const;
     FILE_TYPES             file_type(void) const;
     std::set<HEADER_FLAGS> flags_list(void) const;
-    bool                   has_flag(HEADER_FLAGS flag) const;
+    bool                   has(HEADER_FLAGS flag) const;
     uint32_t               nb_cmds(void) const;
     uint32_t               sizeof_cmds(void) const;
     uint32_t               flags(void) const;
     uint32_t               reserved(void) const;
+
+    void add(HEADER_FLAGS flag);
 
     //! @brief LIEF abstract object type
     OBJECT_TYPES abstract_object_type(void) const;
@@ -65,15 +67,18 @@ class DLL_PUBLIC Header : public Visitable {
     void nb_cmds(uint32_t ncmds);
     void sizeof_cmds(uint32_t sizeofcmds);
     void flags(uint32_t flags);
-    void remove_flag(HEADER_FLAGS flag);
+    void remove(HEADER_FLAGS flag);
     void reserved(uint32_t reserved);
+
+    Header& operator+=(HEADER_FLAGS c);
+    Header& operator-=(HEADER_FLAGS c);
 
     bool operator==(const Header& rhs) const;
     bool operator!=(const Header& rhs) const;
 
     virtual void accept(Visitor& visitor) const override;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Header& hdr);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Header& hdr);
 
   private:
     MACHO_TYPES magic_;

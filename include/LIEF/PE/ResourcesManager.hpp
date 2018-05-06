@@ -20,7 +20,7 @@
 #include <set>
 
 #include "LIEF/visibility.h"
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 #include "LIEF/BinaryStream/VectorStream.hpp"
 
 #include "LIEF/PE/type_traits.hpp"
@@ -35,7 +35,13 @@ namespace PE {
 
 //! @brief The Resource Manager provides an enhanced API to
 //! manipulate the resource tree.
-class DLL_PUBLIC ResourcesManager : public Visitable {
+class LIEF_API ResourcesManager : public Object {
+  public:
+  static RESOURCE_SUBLANGS sub_lang(RESOURCE_LANGS lang, size_t index);
+
+  static RESOURCE_LANGS lang_from_id(size_t id);
+  static RESOURCE_SUBLANGS sublang_from_id(size_t id);
+
   public:
   ResourcesManager(void) = delete;
   ResourcesManager(ResourceNode *rsrc);
@@ -121,7 +127,7 @@ class DLL_PUBLIC ResourcesManager : public Visitable {
   bool operator==(const ResourcesManager& rhs) const;
   bool operator!=(const ResourcesManager& rhs) const;
 
-  DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const ResourcesManager& m);
+  LIEF_API friend std::ostream& operator<<(std::ostream& os, const ResourcesManager& m);
 
   private:
   void print_tree(
@@ -131,10 +137,10 @@ class DLL_PUBLIC ResourcesManager : public Visitable {
       uint32_t max_depth) const;
 
   //! @brief Build the ResourceStringFileInfo from the RT_VERSION node
-  ResourceStringFileInfo get_string_file_info(const VectorStream& stream, uint64_t& offset) const;
+  ResourceStringFileInfo get_string_file_info(const VectorStream& stream, uint16_t type, std::u16string key, size_t start, size_t struct_length) const;
 
   //! @brief Build the ResourceVarFileInfo from the RT_VERSION node
-  ResourceVarFileInfo get_var_file_info(const VectorStream& stream, uint64_t& offset) const;
+  ResourceVarFileInfo get_var_file_info(const VectorStream& stream, uint16_t type, std::u16string key, size_t start, size_t struct_length) const;
 
 
   ResourceNode *resources_;

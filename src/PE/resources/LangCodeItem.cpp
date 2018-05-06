@@ -17,8 +17,9 @@
 
 #include "LIEF/exception.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 
+#include "LIEF/utils.hpp"
 #include "LIEF/PE/utils.hpp"
 #include "LIEF/PE/EnumToString.hpp"
 
@@ -72,7 +73,7 @@ RESOURCE_SUBLANGS LangCodeItem::sublang(void) const {
   }
 
   uint64_t lang_id = std::stoul(u16tou8(this->key().substr(0, 4)), 0, 16);
-  RESOURCE_SUBLANGS sublang = static_cast<RESOURCE_SUBLANGS>(lang_id >> 10);
+  RESOURCE_SUBLANGS sublang = ResourcesManager::sub_lang(this->lang(), (lang_id >> 10));
   return sublang;
 }
 
@@ -132,7 +133,7 @@ void LangCodeItem::sublang(RESOURCE_SUBLANGS lang) {
   mask |= 0x3ff;
 
   lang_id &= mask;
-  lang_id |= static_cast<uint16_t>(lang << 10);
+  lang_id |= static_cast<uint16_t>(lang) << 10;
 
   std::stringstream ss;
   ss << std::setfill('0') << std::setw(sizeof(uint16_t) * 2) << std::hex << static_cast<uint16_t>(lang_id);
@@ -150,12 +151,7 @@ void LangCodeItem::items(const std::map<std::u16string, std::u16string>& items) 
 
 
 void LangCodeItem::accept(Visitor& visitor) const {
-  visitor.visit(this->type());
-  visitor.visit(this->key());
-  for (const std::pair<std::u16string, std::u16string>& p : this->items()) {
-    visitor.visit(p.first);
-    visitor.visit(p.second);
-  }
+  visitor.visit(*this);
 }
 
 

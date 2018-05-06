@@ -19,8 +19,9 @@
 #include <fstream>
 #include <cassert>
 #include <sstream>
+#include <algorithm>
 
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 
 #include "LIEF/BinaryStream/VectorStream.hpp"
 #include "LIEF/exception.hpp"
@@ -60,39 +61,21 @@ uint64_t VectorStream::size(void) const {
 }
 
 
-const void* VectorStream::read(uint64_t offset, uint64_t size) const {
+const void* VectorStream::read_at(uint64_t offset, uint64_t size) const {
 
   if (offset > this->size() or (offset + size) > this->size()) {
-    LOG(DEBUG) << "Offset: "      << std::hex << offset;
-    LOG(DEBUG) << "Size: "        << std::hex << size;
-    LOG(DEBUG) << "Binary Size: " << std::hex << this->size();
-
-    if (offset > this->size()) {
-      throw LIEF::read_out_of_bound(offset);
-    }
-
-    if ((offset + size) > this->size()) {
-      throw LIEF::read_out_of_bound(offset, size);
-    }
+    size_t out_size = (offset + size) - this->size();
+    LOG(ERROR) << "Can't read "
+               << std::dec << size << " bytes at "
+               << std::hex << std::showbase << offset
+               << " (" << std::hex << (out_size) << " bytes out of bound)";
+    //throw LIEF::read_out_of_bound(offset, size);
+    return nullptr;
   }
   return this->binary_.data() + offset;
-
 }
 
 
-const char* VectorStream::read_string(uint64_t offset, uint64_t size) const {
-
-  if ((offset + size) > this->size()) {
-    throw LIEF::read_out_of_bound(offset);
-  }
-
-  if (size > 0) {
-    return reinterpret_cast<const char*>(this->read(offset, size));
-  }
-
-  return reinterpret_cast<const char*>(this->binary_.data() + offset);
-
-}
 
 
 const std::vector<uint8_t>& VectorStream::content(void) const {

@@ -21,7 +21,7 @@
 #include <iterator>
 #include <string>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 #include "LIEF/utils.hpp"
 #include "LIEF/exception.hpp"
 
@@ -293,9 +293,18 @@ uint32_t OptionalHeader::numberof_rva_and_size(void) const {
   return this->numberOfRvaAndSize_;
 }
 
-bool OptionalHeader::has_dll_characteristics(DLL_CHARACTERISTICS c) const {
-  return (this->DLLCharacteristics_ & static_cast<uint32_t>(c)) > 0;
+bool OptionalHeader::has(DLL_CHARACTERISTICS c) const {
+  return (this->dll_characteristics() & static_cast<uint32_t>(c)) > 0;
 }
+
+void OptionalHeader::add(DLL_CHARACTERISTICS c) {
+  this->dll_characteristics(this->dll_characteristics() | static_cast<uint32_t>(c));
+}
+
+void OptionalHeader::remove(DLL_CHARACTERISTICS c) {
+  this->dll_characteristics(this->dll_characteristics() & (~ static_cast<uint32_t>(c)));
+}
+
 
 std::set<DLL_CHARACTERISTICS> OptionalHeader::dll_characteristics_list(void) const {
   std::set<DLL_CHARACTERISTICS> dll_charac;
@@ -303,7 +312,7 @@ std::set<DLL_CHARACTERISTICS> OptionalHeader::dll_characteristics_list(void) con
       std::begin(dll_characteristics_array),
       std::end(dll_characteristics_array),
       std::inserter(dll_charac, std::begin(dll_charac)),
-      std::bind(&OptionalHeader::has_dll_characteristics, this, std::placeholders::_1));
+      std::bind(&OptionalHeader::has, this, std::placeholders::_1));
 
   return dll_charac;
 }
@@ -465,38 +474,18 @@ void OptionalHeader::numberof_rva_and_size(uint32_t numberOfRvaAndSize) {
 }
 
 void OptionalHeader::accept(LIEF::Visitor& visitor) const {
-  visitor.visit(static_cast<uint8_t>(this->magic()));
-  visitor.visit(this->major_linker_version());
-  visitor.visit(this->minor_linker_version());
-  visitor.visit(this->sizeof_code());
-  visitor.visit(this->sizeof_initialized_data());
-  visitor.visit(this->sizeof_uninitialized_data());
-  visitor.visit(this->addressof_entrypoint());
-  visitor.visit(this->baseof_code());
-  if (this->magic() == PE_TYPE::PE32) {
-    visitor.visit(this->baseof_data());
-  }
-  visitor.visit(this->imagebase());
-  visitor.visit(this->section_alignment());
-  visitor.visit(this->file_alignment());
-  visitor.visit(this->major_operating_system_version());
-  visitor.visit(this->minor_operating_system_version());
-  visitor.visit(this->major_image_version());
-  visitor.visit(this->minor_image_version());
-  visitor.visit(this->major_subsystem_version());
-  visitor.visit(this->minor_subsystem_version());
-  visitor.visit(this->win32_version_value());
-  visitor.visit(this->sizeof_image());
-  visitor.visit(this->sizeof_headers());
-  visitor.visit(this->checksum());
-  visitor.visit(this->subsystem());
-  visitor.visit(this->dll_characteristics());
-  visitor.visit(this->sizeof_stack_reserve());
-  visitor.visit(this->sizeof_stack_commit());
-  visitor.visit(this->sizeof_heap_reserve());
-  visitor.visit(this->sizeof_heap_commit());
-  visitor.visit(this->loader_flags());
-  visitor.visit(this->numberof_rva_and_size());
+  visitor.visit(*this);
+}
+
+
+OptionalHeader& OptionalHeader::operator+=(DLL_CHARACTERISTICS c) {
+  this->add(c);
+  return *this;
+}
+
+OptionalHeader& OptionalHeader::operator-=(DLL_CHARACTERISTICS c) {
+  this->remove(c);
+  return *this;
 }
 
 bool OptionalHeader::operator==(const OptionalHeader& rhs) const {

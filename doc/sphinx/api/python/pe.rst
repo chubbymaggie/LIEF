@@ -289,6 +289,18 @@ Resource Dialog
 
 ----------
 
+Resource Dialog Item
+*********************
+
+.. autoclass:: lief.PE.ResourceDialogItem
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
+----------
+
+
 Resource Version
 ****************
 
@@ -368,6 +380,113 @@ Debug
   :undoc-members:
 
 ----------
+
+
+Code View
+*********
+
+.. autoclass:: lief.PE.CodeView
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+
+Code View PDB
+**************
+
+.. autoclass:: lief.PE.CodeViewPDB
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+Code Integrity
+**************
+
+.. autoclass:: lief.PE.CodeIntegrity
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+
+Load Configuration
+******************
+
+.. autoclass:: lief.PE.LoadConfiguration
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
+Load Configuration V0
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV0
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
+Load Configuration V1
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV1
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
+Load Configuration V2
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV2
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
+Load Configuration V3
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV3
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
+Load Configuration V4
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV4
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
+Load Configuration V5
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV5
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
+Load Configuration V6
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV6
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
+Load Configuration V7
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.LoadConfigurationV7
+  :members:
+  :show-inheritance:
+  :undoc-members:
+
 
 Utilities
 *********
@@ -635,6 +754,49 @@ FIXED_VERSION_FILE_SUB_TYPES
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: lief.PE.FIXED_VERSION_FILE_SUB_TYPES
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
+----------
+
+WIN_VERSION
+~~~~~~~~~~~
+
+.. autoclass:: lief.PE.WIN_VERSION
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
+----------
+
+GUARD_CF_FLAGS
+~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.GUARD_CF_FLAGS
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
+----------
+
+GUARD_RF_FLAGS
+~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.GUARD_RF_FLAGS
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+CODE_VIEW_SIGNATURES
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.PE.CODE_VIEW_SIGNATURES
   :members:
   :inherited-members:
   :undoc-members:

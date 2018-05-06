@@ -18,25 +18,38 @@
 #include "LIEF/visibility.h"
 
 #include "LIEF/MachO/Structures.hpp"
+#include "LIEF/MachO/DataCodeEntry.hpp"
 
 namespace LIEF {
 namespace MachO {
-DLL_PUBLIC const char* to_string(LOAD_COMMAND_TYPES e);
-DLL_PUBLIC const char* to_string(MACHO_TYPES e);
-DLL_PUBLIC const char* to_string(FILE_TYPES e);
-DLL_PUBLIC const char* to_string(CPU_TYPES e);
-DLL_PUBLIC const char* to_string(HEADER_FLAGS e);
-DLL_PUBLIC const char* to_string(SECTION_TYPES e);
-DLL_PUBLIC const char* to_string(SECTION_FLAGS e);
-DLL_PUBLIC const char* to_string(SYMBOL_TYPES e);
-DLL_PUBLIC const char* to_string(N_LIST_TYPES e);
-DLL_PUBLIC const char* to_string(SYMBOL_DESCRIPTIONS e);
+LIEF_API const char* to_string(LOAD_COMMAND_TYPES e);
+LIEF_API const char* to_string(MACHO_TYPES e);
+LIEF_API const char* to_string(FILE_TYPES e);
+LIEF_API const char* to_string(CPU_TYPES e);
+LIEF_API const char* to_string(HEADER_FLAGS e);
+LIEF_API const char* to_string(MACHO_SECTION_TYPES e);
+LIEF_API const char* to_string(MACHO_SECTION_FLAGS e);
+LIEF_API const char* to_string(MACHO_SYMBOL_TYPES e);
+LIEF_API const char* to_string(N_LIST_TYPES e);
+LIEF_API const char* to_string(SYMBOL_DESCRIPTIONS e);
 
-DLL_PUBLIC const char* to_string(X86_RELOCATION e);
-DLL_PUBLIC const char* to_string(X86_64_RELOCATION e);
-DLL_PUBLIC const char* to_string(PPC_RELOCATION e);
-DLL_PUBLIC const char* to_string(ARM_RELOCATION e);
-DLL_PUBLIC const char* to_string(ARM64_RELOCATION e);
+LIEF_API const char* to_string(X86_RELOCATION e);
+LIEF_API const char* to_string(X86_64_RELOCATION e);
+LIEF_API const char* to_string(PPC_RELOCATION e);
+LIEF_API const char* to_string(ARM_RELOCATION e);
+LIEF_API const char* to_string(ARM64_RELOCATION e);
+LIEF_API const char* to_string(RELOCATION_ORIGINS e);
+
+LIEF_API const char* to_string(REBASE_TYPES e);
+LIEF_API const char* to_string(BINDING_CLASS e);
+LIEF_API const char* to_string(REBASE_OPCODES e);
+LIEF_API const char* to_string(BIND_TYPES e);
+LIEF_API const char* to_string(BIND_SPECIAL_DYLIB e);
+LIEF_API const char* to_string(BIND_OPCODES e);
+LIEF_API const char* to_string(EXPORT_SYMBOL_KINDS e);
+LIEF_API const char* to_string(VM_PROTECTIONS e);
+LIEF_API const char* to_string(SYMBOL_ORIGINS e);
+LIEF_API const char* to_string(DataCodeEntry::TYPES e);
 
 } // namespace MachO
 } // namespace LIEF

@@ -41,17 +41,19 @@ void init_ELF_DynamicSharedObject_class(py::module&);
 void init_ELF_DynamicEntryArray_class(py::module&);
 void init_ELF_DynamicEntryRpath_class(py::module&);
 void init_ELF_DynamicEntryRunPath_class(py::module&);
+void init_ELF_DynamicEntryFlags_class(py::module&);
 void init_ELF_GnuHash_class(py::module&);
 void init_ELF_SysvHash_class(py::module&);
 void init_ELF_Builder_class(py::module&);
 void init_ELF_Note_class(py::module&);
+void init_ELF_AndroidNote_class(py::module&);
 
 // Enums
 void init_ELF_Structures_enum(py::module&);
 
-// ELF32 and ELF64 structures
-void init_ELF32_Structures(py::module&);
-void init_ELF64_Structures(py::module&);
+void init_ELF32_sizes(py::module&);
+void init_ELF64_sizes(py::module&);
+
 
 
 #endif

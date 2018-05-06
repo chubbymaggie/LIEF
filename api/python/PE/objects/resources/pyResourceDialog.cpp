@@ -15,7 +15,7 @@
  */
 #include "pyPE.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 #include "LIEF/PE/resources/ResourceDialog.hpp"
 
 #include <string>
@@ -29,7 +29,7 @@ template<class T>
 using setter_t = void (ResourceDialog::*)(T);
 
 void init_PE_ResourcesDialog_class(py::module& m) {
-  py::class_<ResourceDialog>(m, "ResourceDialog")
+  py::class_<ResourceDialog, LIEF::Object>(m, "ResourceDialog")
 
     .def_property_readonly("is_extended",
         &ResourceDialog::is_extended,
@@ -130,11 +130,21 @@ void init_PE_ResourcesDialog_class(py::module& m) {
         "" RST_CLASS_REF(lief.PE.EXTENDED_WINDOW_STYLES) "",
         "style"_a)
 
+    .def_property("lang",
+        static_cast<getter_t<RESOURCE_LANGS>>(&ResourceDialog::lang),
+        static_cast<setter_t<RESOURCE_LANGS>>(&ResourceDialog::lang),
+        "Primary " RST_CLASS_REF(lief.PE.RESOURCE_LANGS) " associated with the dialog")
+
+    .def_property("sub_lang",
+        static_cast<getter_t<RESOURCE_SUBLANGS>>(&ResourceDialog::sub_lang),
+        static_cast<setter_t<RESOURCE_SUBLANGS>>(&ResourceDialog::sub_lang),
+        "Secondary " RST_CLASS_REF(lief.PE.RESOURCE_SUBLANGS) " associated with the dialog")
+
     .def("__eq__", &ResourceDialog::operator==)
     .def("__ne__", &ResourceDialog::operator!=)
     .def("__hash__",
         [] (const ResourceDialog& dialog) {
-          return LIEF::Hash::hash(dialog);
+          return Hash::hash(dialog);
         })
 
     .def("__str__",

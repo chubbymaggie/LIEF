@@ -12,7 +12,12 @@ macro(ADD_ELF_TEST name sources)
     target_compile_options(${name}        PUBLIC /FIiso646.h)
     target_compile_options(${name}_shared PUBLIC /FIiso646.h)
 
-	  target_compile_options(${name}_shared PUBLIC /MT)
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
+      target_compile_options("${name}_shared" PUBLIC /MTd)
+    else()
+      target_compile_options("${name}_shared" PUBLIC /MT)
+    endif()
+
 	  set_property(TARGET ${name} ${name}_shared PROPERTY LINK_FLAGS /NODEFAULTLIB:MSVCRT)
   endif()
 
@@ -46,8 +51,13 @@ macro(ADD_ELF_TEST name sources)
   target_link_libraries(${name}        PUBLIC LIB_LIEF_STATIC ${YAMLCPP_LIBRARY_RELEASE})
   target_link_libraries(${name}_shared PUBLIC LIB_LIEF_SHARED ${YAMLCPP_LIBRARY_RELEASE})
 
-  add_test(${name}         ${CMAKE_CURRENT_BINARY_DIR}/${name})
-  add_test(${name}_shared  ${CMAKE_CURRENT_BINARY_DIR}/${name}_shared)
+  if (LIEF_TEST_STATIC)
+    add_test(${name}         ${CMAKE_CURRENT_BINARY_DIR}/${name})
+  endif()
+
+  if (LIEF_TEST_SHARED)
+    add_test(${name}_shared  ${CMAKE_CURRENT_BINARY_DIR}/${name}_shared)
+  endif()
 
 endmacro()
 
@@ -186,9 +196,33 @@ if (PYTHON_TESTS_ENABLED)
     "${CMAKE_CURRENT_SOURCE_DIR}/add_content.py")
 
 
+  ADD_PYTHON_TEST(ELF_PYTHON_replace_segment
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/replace_segment.py")
+
+
+  ADD_PYTHON_TEST(ELF_PYTHON_test_dynamic
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_dynamic.py")
+
+
   ADD_PYTHON_TEST(ELF_PYTHON_hash_test
     ${PYTHON_EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/hash_tests.py")
+
+
+  ADD_PYTHON_TEST(ELF_PYTHON_change_interpreter
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/change_interpreter.py")
+
+
+  ADD_PYTHON_TEST(ELF_PYTHON_notes
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_notes.py")
+
+  ADD_PYTHON_TEST(ELF_PYTHON_bin2lib
+    ${PYTHON_EXECUTABLE}
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_bin2lib.py")
 
   # Examples
   # --------

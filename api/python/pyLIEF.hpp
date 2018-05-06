@@ -18,24 +18,47 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/operators.h>
 #include <functional>
+
+#include <LIEF/config.h>
 
 #include "encoding.hpp"
 
 #include "pyIterators.hpp"
 
+#define RST_CLASS_REF(X) ":class:`~"#X"`"
+#define RST_CLASS_REF_FULL(X) ":class:`"#X"`"
+
+#define RST_ATTR_REF(X) ":attr:`~"#X"`"
+#define RST_ATTR_REF_FULL(X) ":attr:`"#X"`"
+
 namespace py = pybind11;
 
 using namespace pybind11::literals;
 
+void init_LIEF_Object_class(py::module&);
+void init_LIEF_Logger(py::module&);
 void init_LIEF_exceptions(py::module&);
 void init_LIEF_module(py::module&);
-void init_ELF_module(py::module&);
-void init_PE_module(py::module&);
-void init_MachO_module(py::module&);
-void init_utils_functions(py::module&);
-void init_json_functions(py::module&);
+void init_hash_functions(py::module&);
 
-#define RST_CLASS_REF(X) ":class:`~"#X"`"
+#if defined(LIEF_ELF_SUPPORT)
+void init_ELF_module(py::module&);
+#endif
+
+#if defined(LIEF_PE_SUPPORT)
+void init_PE_module(py::module&);
+#endif
+#if defined(LIEF_MACHO_SUPPORT)
+void init_MachO_module(py::module&);
+#endif
+
+void init_utils_functions(py::module&);
+
+#if defined(LIEF_JSON_SUPPORT)
+void init_json_functions(py::module&);
+#endif
+
 
 #endif

@@ -19,7 +19,7 @@
 #include <iterator>
 
 #include "LIEF/exception.hpp"
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/MachO/hash.hpp"
 
 #include "LIEF/MachO/Section.hpp"
 #include "LIEF/MachO/SegmentCommand.hpp"
@@ -30,11 +30,15 @@ namespace MachO {
 
 Section& Section::operator=(const Section&) = default;
 Section::Section(const Section&) = default;
-Section::~Section(void) = default;
+Section::~Section(void) {
+  for (Relocation* reloc : this->relocations_) {
+    delete reloc;
+  }
+}
 
 Section::Section(void) :
+  LIEF::Section{},
   segment_name_{""},
-  address_{0},
   original_size_{0},
   align_{0},
   relocations_offset_{0},
@@ -52,8 +56,7 @@ Section::Section(void) :
 }
 
 Section::Section(const section_32 *sectionCmd) :
-  segment_name_{sectionCmd->segname},
-  address_{sectionCmd->addr},
+  segment_name_{sectionCmd->segname, sizeof(sectionCmd->sectname)},
   original_size_{sectionCmd->size},
   align_{sectionCmd->align},
   relocations_offset_{sectionCmd->reloff},
@@ -65,14 +68,17 @@ Section::Section(const section_32 *sectionCmd) :
   segment_{nullptr},
   relocations_{}
 {
-  this->name_   = sectionCmd->sectname;
-  this->size_   = sectionCmd->size;
-  this->offset_ = sectionCmd->offset;
+  this->name_            = {sectionCmd->sectname, sizeof(sectionCmd->sectname)};
+  this->size_            = sectionCmd->size;
+  this->offset_          = sectionCmd->offset;
+  this->virtual_address_ = sectionCmd->addr;
+
+  this->name_         = std::string{this->name_.c_str()};
+  this->segment_name_ = std::string{this->segment_name_.c_str()};
 }
 
 Section::Section(const section_64 *sectionCmd) :
-  segment_name_{sectionCmd->segname},
-  address_{sectionCmd->addr},
+  segment_name_{sectionCmd->segname, sizeof(sectionCmd->segname)},
   original_size_{sectionCmd->size},
   align_{sectionCmd->align},
   relocations_offset_{sectionCmd->reloff},
@@ -84,9 +90,13 @@ Section::Section(const section_64 *sectionCmd) :
   segment_{nullptr},
   relocations_{}
 {
-  this->name_   = sectionCmd->sectname;
-  this->size_   = sectionCmd->size;
-  this->offset_ = sectionCmd->offset;
+  this->name_            = {sectionCmd->sectname, sizeof(sectionCmd->sectname)};
+  this->size_            = sectionCmd->size;
+  this->offset_          = sectionCmd->offset;
+  this->virtual_address_ = sectionCmd->addr;
+
+  this->name_         = std::string{this->name_.c_str()};
+  this->segment_name_ = std::string{this->segment_name_.c_str()};
 }
 
 
@@ -163,16 +173,16 @@ it_const_relocations Section::relocations(void) const {
   return this->relocations_;
 }
 
-SECTION_TYPES Section::type(void) const {
-  return static_cast<SECTION_TYPES>(
-      this->flags_ & SECTION_FLAGS_HELPER::SECTION_TYPE_MASK);
+MACHO_SECTION_TYPES Section::type(void) const {
+  static constexpr size_t SECTION_TYPE_MASK = 0xFF;
+  return static_cast<MACHO_SECTION_TYPES>(this->flags_ & SECTION_TYPE_MASK);
 }
 
-std::set<SECTION_FLAGS> Section::flags_list(void) const {
+std::set<MACHO_SECTION_FLAGS> Section::flags_list(void) const {
 
-  std::set<SECTION_FLAGS> flags;
+  std::set<MACHO_SECTION_FLAGS> flags;
 
-  auto has_flag = [this] (SECTION_FLAGS flag) {
+  auto has_flag = [this] (MACHO_SECTION_FLAGS flag) {
     return (static_cast<uint32_t>(flag) & this->flags_) > 0;
   };
 
@@ -224,31 +234,14 @@ void Section::reserved3(uint32_t reserved3) {
   this->reserved3_ = reserved3;
 }
 
-void Section::type(SECTION_TYPES type) {
-  this->flags_ =
-    (this->flags_ & SECTION_FLAGS_HELPER::SECTION_FLAGS_MASK) | static_cast<uint8_t>(type);
+void Section::type(MACHO_SECTION_TYPES type) {
+  static constexpr size_t SECTION_FLAGS_MASK = 0xffffff00u;
+  this->flags_ = (this->flags_ & SECTION_FLAGS_MASK) | static_cast<uint8_t>(type);
 }
 
 
 void Section::accept(Visitor& visitor) const {
-  LIEF::Section::accept(visitor);
-
-  visitor.visit(this->content());
-  visitor.visit(this->segment_name());
-  visitor.visit(this->address());
-  visitor.visit(this->alignment());
-  visitor.visit(this->relocation_offset());
-  visitor.visit(this->numberof_relocations());
-  visitor.visit(this->flags());
-  visitor.visit(this->type());
-  visitor.visit(this->reserved1());
-  visitor.visit(this->reserved2());
-  visitor.visit(this->reserved3());
-  visitor.visit(this->raw_flags());
-
-  for (const Relocation& relocation : this->relocations()) {
-    visitor(relocation);
-  }
+  visitor.visit(*this);
 }
 
 bool Section::operator==(const Section& rhs) const {
@@ -268,7 +261,7 @@ std::ostream& operator<<(std::ostream& os, const Section& section) {
    std::string flags_str = std::accumulate(
      std::begin(flags),
      std::end(flags), std::string{},
-     [] (const std::string& a, SECTION_FLAGS b) {
+     [] (const std::string& a, MACHO_SECTION_FLAGS b) {
          return a.empty() ? to_string(b) : a + " " + to_string(b);
      });
 

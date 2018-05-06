@@ -37,7 +37,7 @@ namespace LIEF {
 namespace PE {
 
 //! @brief Class which reconstruct a PE binary from a PE::Binary object
-class DLL_PUBLIC Builder
+class LIEF_API Builder
 {
   public:
     Builder(void) = delete;
@@ -47,18 +47,18 @@ class DLL_PUBLIC Builder
     //! @brief Perform the build process
     void build(void);
 
-    //! @brief Construct a ``jmp *address``.
+    //! @brief Construct a ``jmp [address] @ from``.
     //!
     //! It is used when patching import table
     template<typename PE_T>
-    static std::vector<uint8_t> build_jmp(uint64_t address);
+    static std::vector<uint8_t> build_jmp(uint64_t from, uint64_t address);
 
 
-    //! @brief Construct a ``jmp address``.
+    //! @brief Construct a ``jmp far address @ from``.
     //!
     //! It is used for hooking
     template<typename PE_T>
-    static std::vector<uint8_t> build_jmp_hook(uint64_t address);
+    static std::vector<uint8_t> build_jmp_hook(uint64_t from, uint64_t address);
 
     //! @brief Rebuild the import table in another section
     Builder& build_imports(bool flag = true);
@@ -90,7 +90,7 @@ class DLL_PUBLIC Builder
     //! @brief Write the build result into the ``output`` file
     void write(const std::string& filename) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Builder& b);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Builder& b);
 
     Builder& operator<<(const DosHeader& dos_header);
     Builder& operator<<(const Header& bHeader);

@@ -19,7 +19,9 @@
 #include <string>
 #include <iostream>
 
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Abstract/Relocation.hpp"
+
+#include "LIEF/Object.hpp"
 #include "LIEF/visibility.h"
 
 #include "LIEF/PE/Structures.hpp"
@@ -29,23 +31,43 @@ namespace PE {
 
 class Parser;
 class Builder;
+class Relocation;
 
-class DLL_PUBLIC RelocationEntry : public Visitable {
+class LIEF_API RelocationEntry : public LIEF::Relocation {
 
   friend class Parser;
   friend class Builder;
+  friend class PE::Relocation;
 
   public:
     RelocationEntry(void);
-    RelocationEntry(const RelocationEntry&);
-    RelocationEntry& operator=(const RelocationEntry&);
+    RelocationEntry(const RelocationEntry& other);
+    RelocationEntry& operator=(RelocationEntry other);
     RelocationEntry(uint16_t data);
     RelocationEntry(uint16_t position, RELOCATIONS_BASE_TYPES type);
     virtual ~RelocationEntry(void);
 
+    void swap(RelocationEntry& other);
+
+    virtual uint64_t address(void) const override;
+
+    virtual void address(uint64_t address) override;
+
+    virtual size_t size(void) const override;
+
+    virtual void size(size_t size) override;
+
+    //! @brief Raw data of the relocation:
+    //! - The **high** 4 bits store the relocation type
+    //! - The **low** 12 bits store the relocation offset
     uint16_t data(void) const;
+
+    //! @brief Offset relative to Relocation::virtual_address
+    //! where the relocation must occur.
     uint16_t position(void) const;
-    RELOCATIONS_BASE_TYPES  type(void) const;
+
+    //! @brief Type of the relocation
+    RELOCATIONS_BASE_TYPES type(void) const;
 
     void data(uint16_t data);
     void position(uint16_t position);
@@ -56,11 +78,12 @@ class DLL_PUBLIC RelocationEntry : public Visitable {
     bool operator==(const RelocationEntry& rhs) const;
     bool operator!=(const RelocationEntry& rhs) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const RelocationEntry& entry);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const RelocationEntry& entry);
 
   private:
     uint16_t               position_;
     RELOCATIONS_BASE_TYPES type_;
+    PE::Relocation*        relocation_; // Used to compute some informations
 };
 
 }

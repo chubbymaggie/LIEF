@@ -19,8 +19,10 @@
 #include <iterator>
 #include <stdexcept>
 #include <functional>
+#include <map>
 
 #include "LIEF/exception.hpp"
+#include "LIEF/utils.hpp"
 
 #include "LIEF/ELF/Builder.hpp"
 #include "Builder.tcc"
@@ -39,7 +41,7 @@ Builder::Builder(Binary *binary) :
 }
 
 void Builder::build(void) {
-  if(this->binary_->type() == ELFCLASS32) {
+  if(this->binary_->type() == ELF_CLASS::ELFCLASS32) {
     this->build<ELF32>();
   } else {
     this->build<ELF64>();
@@ -72,17 +74,20 @@ void Builder::write(const std::string& filename) const {
 
 
 void Builder::build_empty_symbol_gnuhash(void) {
+  LOG(DEBUG) << "Build empty GNU Hash";
   auto&& it_gnuhash = std::find_if(
       std::begin(this->binary_->sections_),
       std::end(this->binary_->sections_),
       [] (const Section* section)
       {
-        return section != nullptr and section->type() == SECTION_TYPES::SHT_GNU_HASH;
+        return section != nullptr and section->type() == ELF_SECTION_TYPES::SHT_GNU_HASH;
       });
 
   if (it_gnuhash == std::end(this->binary_->sections_)) {
     throw corrupted("Unable to find the .gnu.hash section");
   }
+
+  Section* gnu_hash_section = *it_gnuhash;
 
   std::vector<uint8_t> content;
   const uint32_t nb_buckets = 1;
@@ -113,43 +118,100 @@ void Builder::build_empty_symbol_gnuhash(void) {
   // fill with 0
   content.insert(
       std::end(content),
-      (*it_gnuhash)->size() - content.size(),
+      gnu_hash_section->size() - content.size(),
       0);
-  (*it_gnuhash)->content(content);
-
-
-}
-
-
-
-void Builder::build_symbol_version(void) {
-
-  LOG(DEBUG) << "[+] Building symbol version" << std::endl;
-
-  if (this->binary_->symbol_version_table_.size() != this->binary_->dynamic_symbols_.size()) {
-    LOG(WARNING) << "The number of symbol version is different from the number of dynamic symbols ("
-                 << std::dec << this->binary_->symbol_version_table_.size() << " != "
-                 << this->binary_->dynamic_symbols_.size() << " ) " << std::endl;
-  }
-
-  const uint64_t sv_address = this->binary_->dynamic_entry_from_tag(DYNAMIC_TAGS::DT_VERSYM).value();
-
-  std::vector<uint8_t> sv_raw;
-  sv_raw.reserve(this->binary_->symbol_version_table_.size() * sizeof(uint16_t));
-
-  for (const SymbolVersion* sv : this->binary_->symbol_version_table_) {
-    const uint16_t value = sv->value();
-    sv_raw.insert(
-        std::end(sv_raw),
-        reinterpret_cast<const uint8_t*>(&value),
-        reinterpret_cast<const uint8_t*>(&value) + sizeof(uint16_t));
-
-  }
-
- this->binary_->section_from_virtual_address(sv_address).content(sv_raw);
+  gnu_hash_section->content(content);
 
 }
 
+
+
+
+
+size_t Builder::note_offset(const Note& note) {
+  auto&& it_note = std::find_if(
+      std::begin(this->binary_->notes_),
+      std::end(this->binary_->notes_),
+      [&note] (const Note* n) {
+        return *n == note;
+      });
+  if (it_note == std::end(this->binary_->notes_)) {
+    // TODO
+  }
+
+  size_t offset = std::accumulate(
+      std::begin(this->binary_->notes_),
+      it_note, 0,
+      [] (size_t offset, const Note* n) {
+        return offset + n->size();
+      });
+  return offset;
+}
+
+
+void Builder::build(NOTE_TYPES type) {
+  using note_to_section_map_t = std::multimap<NOTE_TYPES, const char*>;
+  using value_t = typename note_to_section_map_t::value_type;
+
+  static const note_to_section_map_t note_to_section_map = {
+    { NOTE_TYPES::NT_GNU_ABI_TAG,      ".note.ABI-tag"          },
+    { NOTE_TYPES::NT_GNU_ABI_TAG,      ".note.android.ident"    },
+
+    { NOTE_TYPES::NT_GNU_BUILD_ID,     ".note.gnu.build-id"     },
+    { NOTE_TYPES::NT_GNU_GOLD_VERSION, ".note.gnu.gold-version" },
+  };
+
+  Segment& segment_note = this->binary_->get(SEGMENT_TYPES::PT_NOTE);
+
+  auto&& range_secname = note_to_section_map.equal_range(type);
+
+  auto&& it_section_name = std::find_if(
+      range_secname.first, range_secname.second,
+      [this] (value_t p) {
+        return this->binary_->has_section(p.second);
+      });
+
+  bool has_section = (it_section_name != range_secname.second);
+
+  std::string section_name;
+  if (has_section) {
+    section_name = it_section_name->second;
+  } else {
+    section_name = range_secname.first->second;
+  }
+
+  // Link section and notes
+  if (this->binary_->has(type) and
+      has_section)
+  {
+    Section& section = this->binary_->get_section(section_name);
+    const Note& note = this->binary_->get(type);
+    section.offset(segment_note.file_offset() + this->note_offset(note));
+    section.size(note.size());
+  }
+
+  // Remove the section
+  if (not this->binary_->has(type) and
+      has_section)
+  {
+    this->binary_->remove_section(section_name, true);
+  }
+
+  // Add a new section
+  if (this->binary_->has(type) and
+      not has_section)
+  {
+
+    const Note& note = this->binary_->get(type);
+
+    Section section{section_name, ELF_SECTION_TYPES::SHT_NOTE};
+    section += ELF_SECTION_FLAGS::SHF_ALLOC;
+
+    Section& section_added = this->binary_->add(section, false);
+    section_added.offset(segment_note.file_offset() + this->note_offset(note));
+    section_added.size(note.size());
+  }
+}
 
 
 }

@@ -15,11 +15,19 @@
  */
 #ifndef LIEF_MAIN_HEADER_H_
 #define LIEF_MAIN_HEADER_H_
+#include <LIEF/config.h>
 
-#include <LIEF/Abstract/Abstract.hpp>
+#include <LIEF/Abstract.hpp>
+
+#include <LIEF/OAT.hpp>
+#include <LIEF/VDEX.hpp>
+#include <LIEF/ART.hpp>
+#include <LIEF/DEX.hpp>
 #include <LIEF/ELF.hpp>
 #include <LIEF/PE.hpp>
 #include <LIEF/MachO.hpp>
+#include <LIEF/logging.hpp>
+#include <LIEF/platforms.hpp>
 
 
 #endif

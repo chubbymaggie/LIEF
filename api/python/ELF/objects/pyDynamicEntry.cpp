@@ -16,7 +16,7 @@
 #include "pyELF.hpp"
 
 #include "LIEF/ELF/DynamicEntry.hpp"
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 
 #include <string>
 #include <sstream>
@@ -30,29 +30,29 @@ using setter_t = void (DynamicEntry::*)(T);
 void init_ELF_DynamicEntry_class(py::module& m) {
 
   // DynamicEntry object
-  py::class_<DynamicEntry>(m, "DynamicEntry")
+  py::class_<DynamicEntry, LIEF::Object>(m, "DynamicEntry")
+    .def(py::init<>(),
+        "Default constructor")
+
+    .def(py::init<DYNAMIC_TAGS, uint64_t>(),
+        "Constructor with " RST_CLASS_REF(lief.ELF.DYNAMIC_TAGS) " and value",
+        "tag"_a, "value"_a)
+
     .def_property("tag",
         static_cast<getter_t<DYNAMIC_TAGS>>(&DynamicEntry::tag),
         static_cast<setter_t<DYNAMIC_TAGS>>(&DynamicEntry::tag),
         "Return the entry's " RST_CLASS_REF(lief.ELF.DYNAMIC_TAGS) " which represent the entry type")
-
 
     .def_property("value",
         static_cast<getter_t<uint64_t>>(&DynamicEntry::value),
         static_cast<setter_t<uint64_t>>(&DynamicEntry::value),
         "Return the entry's value.")
 
-    .def_property("name",
-        static_cast<getter_t<const std::string&>>(&DynamicEntry::name),
-        static_cast<setter_t<const std::string&>>(&DynamicEntry::name),
-        "Depending on the entry type, it return a name. For instance for a ``DT_SONAME``\
-        entry it returns the library name")
-
     .def("__eq__", &DynamicEntry::operator==)
     .def("__ne__", &DynamicEntry::operator!=)
     .def("__hash__",
         [] (const DynamicEntry& entry) {
-          return LIEF::Hash::hash(entry);
+          return Hash::hash(entry);
         })
 
     .def("__str__",

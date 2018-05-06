@@ -15,7 +15,7 @@
  */
 #include <iomanip>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/MachO/hash.hpp"
 
 #include "LIEF/MachO/SegmentCommand.hpp"
 
@@ -25,10 +25,19 @@ namespace MachO {
 SegmentCommand::SegmentCommand(void) = default;
 SegmentCommand& SegmentCommand::operator=(const SegmentCommand&) = default;
 SegmentCommand::SegmentCommand(const SegmentCommand&) = default;
-SegmentCommand::~SegmentCommand(void) = default;
+SegmentCommand::~SegmentCommand(void) {
+  for (Relocation* reloc : this->relocations_) {
+    delete reloc;
+  }
+
+  for (Section* section : this->sections_) {
+    delete section;
+  }
+}
 
 SegmentCommand::SegmentCommand(const segment_command_32 *segmentCmd) :
-  name_{segmentCmd->segname},
+  LoadCommand{LOAD_COMMAND_TYPES::LC_SEGMENT, segmentCmd->cmdsize},
+  name_{segmentCmd->segname, sizeof(segmentCmd->segname)},
   virtualAddress_{segmentCmd->vmaddr},
   virtualSize_{segmentCmd->vmsize},
   fileOffset_{segmentCmd->fileoff},
@@ -36,14 +45,15 @@ SegmentCommand::SegmentCommand(const segment_command_32 *segmentCmd) :
   maxProtection_{segmentCmd->maxprot},
   initProtection_{segmentCmd->initprot},
   nbSections_{segmentCmd->nsects},
-  flags_{segmentCmd->flags}
+  flags_{segmentCmd->flags},
+  relocations_{}
 {
-  this->command_ = LOAD_COMMAND_TYPES::LC_SEGMENT;
-  this->size_    = segmentCmd->cmdsize;
+  this->name_ = std::string{this->name_.c_str()};
 }
 
 SegmentCommand::SegmentCommand(const segment_command_64 *segmentCmd) :
-  name_{segmentCmd->segname},
+  LoadCommand{LOAD_COMMAND_TYPES::LC_SEGMENT_64, segmentCmd->cmdsize},
+  name_{segmentCmd->segname, sizeof(segmentCmd->segname)},
   virtualAddress_{segmentCmd->vmaddr},
   virtualSize_{segmentCmd->vmsize},
   fileOffset_{segmentCmd->fileoff},
@@ -51,10 +61,10 @@ SegmentCommand::SegmentCommand(const segment_command_64 *segmentCmd) :
   maxProtection_{segmentCmd->maxprot},
   initProtection_{segmentCmd->initprot},
   nbSections_{segmentCmd->nsects},
-  flags_{segmentCmd->flags}
+  flags_{segmentCmd->flags},
+  relocations_{}
 {
-  this->command_ = LOAD_COMMAND_TYPES::LC_SEGMENT_64;
-  this->size_    = segmentCmd->cmdsize;
+  this->name_ = std::string{this->name_.c_str()};
 }
 
 
@@ -95,20 +105,21 @@ uint32_t SegmentCommand::flags(void) const {
 }
 
 it_sections SegmentCommand::sections(void) {
-  sections_t result;
-  for (Section& s : this->sections_) {
-    result.push_back(&s);
-  }
-  return it_sections{result};
+  return this->sections_;
 }
 
 
 it_const_sections SegmentCommand::sections(void) const {
-  sections_t result;
-  for (const Section& s : this->sections_) {
-    result.push_back(const_cast<Section*>(&s));
-  }
-  return it_const_sections{result};
+  return this->sections_;
+}
+
+
+it_relocations SegmentCommand::relocations(void) {
+  return this->relocations_;
+}
+
+it_const_relocations SegmentCommand::relocations(void) const {
+  return this->relocations_;
 }
 
 const std::vector<uint8_t>& SegmentCommand::content(void) const {
@@ -168,22 +179,7 @@ void SegmentCommand::remove_all_sections(void) {
 
 
 void SegmentCommand::accept(Visitor& visitor) const {
-  LoadCommand::accept(visitor);
-
-  visitor.visit(this->name());
-  visitor.visit(this->virtual_address());
-  visitor.visit(this->virtual_size());
-  visitor.visit(this->file_size());
-  visitor.visit(this->file_offset());
-  visitor.visit(this->max_protection());
-  visitor.visit(this->init_protection());
-  visitor.visit(this->numberof_sections());
-  visitor.visit(this->flags());
-  visitor.visit(this->content());
-
-  for (const Section& section : this->sections()) {
-    visitor(section);
-  }
+  visitor.visit(*this);
 }
 
 bool SegmentCommand::operator==(const SegmentCommand& rhs) const {

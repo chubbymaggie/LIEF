@@ -35,6 +35,7 @@
 #include "LIEF/PE/Debug.hpp"
 #include "LIEF/PE/ResourcesManager.hpp"
 #include "LIEF/PE/signature/Signature.hpp"
+#include "LIEF/PE/LoadConfigurations.hpp"
 
 #include "LIEF/Abstract/Binary.hpp"
 
@@ -46,7 +47,7 @@ class Parser;
 class Builder;
 
 //! @brief Class which represent a PE binary object
-class DLL_PUBLIC Binary : public LIEF::Binary {
+class LIEF_API Binary : public LIEF::Binary {
   friend class Parser;
   friend class Builder;
 
@@ -77,8 +78,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     const Section& section_from_rva(uint64_t virtual_address) const;
 
     //! @brief Return binary's sections
-    it_sections       get_sections(void);
-    it_const_sections get_sections(void) const;
+    it_sections       sections(void);
+    it_const_sections sections(void) const;
 
     // =======
     // Headers
@@ -98,10 +99,10 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
 
     //! @brief Compute the binary's virtual size.
     //! It should match with OptionalHeader::sizeof_image
-    uint64_t get_virtual_size(void) const;
+    uint64_t virtual_size(void) const;
 
     //! @brief Compute the size of all headers
-    uint32_t get_sizeof_headers(void) const;
+    uint32_t sizeof_headers(void) const;
 
     //! @brief Return a reference to the TLS object
     TLS&       tls(void);
@@ -140,7 +141,7 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     //! @brief Check if the current binary has debugs
     bool has_debug(void) const;
 
-    //! @brief Check if the current binary has configuration
+    //! @brief Check if the current binary has a load configuration
     bool has_configuration(void) const;
 
     //! @brief Return the Signature object if the bianry is signed
@@ -169,8 +170,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     const std::vector<Symbol>& symbols(void) const;
 
     //! @brief Return resources as a tree
-    ResourceNode&                  get_resources(void);
-    const ResourceNode&            get_resources(void) const;
+    ResourceNode&                  resources(void);
+    const ResourceNode&            resources(void) const;
 
     //! @brief Set a new resource tree
     void set_resources(const ResourceDirectory& resource);
@@ -179,8 +180,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     void set_resources(const ResourceData& resource);
 
     //! @brief Return the ResourcesManager (class to manage resources more easily than the tree one)
-    ResourcesManager               get_resources_manager(void);
-    const ResourcesManager         get_resources_manager(void) const;
+    ResourcesManager               resources_manager(void);
+    const ResourcesManager         resources_manager(void) const;
 
     // ==========================
     // Methods to manage sections
@@ -193,8 +194,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     const Section& get_section(const std::string& name) const;
 
     //! @brief Return the section associated with import table
-    const Section& get_import_section(void) const;
-    Section&       get_import_section(void);
+    const Section& import_section(void) const;
+    Section&       import_section(void);
 
     //! @brief Delete the section with the given name
     //!
@@ -204,7 +205,7 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     //! @brief Add a section to the binary and return the section added.
     Section& add_section(
         const Section& section,
-        SECTION_TYPES type = SECTION_TYPES::UNKNOWN);
+        PE_SECTION_TYPES type = PE_SECTION_TYPES::UNKNOWN);
 
     // =============================
     // Methods to manage relocations
@@ -214,7 +215,7 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     it_const_relocations relocations(void) const;
 
     //! @brief Add a @link PE::Relocation relocation @endlink
-    void add_relocation(const Relocation& relocation);
+    Relocation& add_relocation(const Relocation& relocation);
 
     //! @brief Remove all relocations
     void remove_all_relocations(void);
@@ -232,8 +233,12 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     const DataDirectory& data_directory(DATA_DIRECTORY index) const;
 
     //! @brief Return the Debug object
-    Debug&       get_debug(void);
-    const Debug& get_debug(void) const;
+    Debug&       debug(void);
+    const Debug& debug(void) const;
+
+    //! @brief Retrun the LoadConfiguration object
+    const LoadConfiguration& load_configuration(void) const;
+    LoadConfiguration& load_configuration(void);
 
     // =======
     // Overlay
@@ -337,7 +342,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     //!
     //! @param[in] address Address to patch
     //! @param[in] patch_value Patch to apply
-    virtual void patch_address(uint64_t address, const std::vector<uint8_t>& patch_value) override;
+    //! @param[in] addr_type Type of the Virtual address: VA or RVA. Default: Auto
+    virtual void patch_address(uint64_t address, const std::vector<uint8_t>& patch_value, LIEF::Binary::VA_TYPES addr_type = LIEF::Binary::VA_TYPES::AUTO) override;
 
 
     //! @brief Patch the address with the given value
@@ -345,13 +351,25 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     //! @param[in] address Address to patch
     //! @param[in] patch_value Patch to apply
     //! @param[in] size Size of the value in **bytes** (1, 2, ... 8)
-    virtual void patch_address(uint64_t address, uint64_t patch_value, size_t size = sizeof(uint64_t)) override;
+    //! @param[in] addr_type Type of the Virtual address: VA or RVA. Default: Auto
+    virtual void patch_address(uint64_t address, uint64_t patch_value, size_t size = sizeof(uint64_t), LIEF::Binary::VA_TYPES addr_type = LIEF::Binary::VA_TYPES::AUTO) override;
 
     //! @brief Return the content located at virtual address
-    virtual std::vector<uint8_t> get_content_from_virtual_address(uint64_t virtual_address, uint64_t size) const override;
+    //
+    //! @param[in] virtual_address Virtual address of the data to retrieve
+    //! @param[in] size Size in bytes of the data to retrieve
+    //! @param[in] addr_type Type of the Virtual address: VA or RVA. Default: Auto
+    virtual std::vector<uint8_t> get_content_from_virtual_address(uint64_t virtual_address, uint64_t size,
+        LIEF::Binary::VA_TYPES addr_type = LIEF::Binary::VA_TYPES::AUTO) const override;
 
     //! @brief Return the binary's entrypoint
     virtual uint64_t entrypoint(void) const override;
+
+    //! @brief Check if the binary is position independent
+    virtual bool is_pie(void) const override;
+
+    //! @brief Check if the binary uses ``NX`` protection
+    virtual bool has_nx(void) const override;
 
     bool operator==(const Binary& rhs) const;
     bool operator!=(const Binary& rhs) const;
@@ -361,6 +379,10 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
   private:
     Binary(void);
 
+    //! @brief Make space between the last section header and the beginning of the
+    //! content of first section
+    void make_space_for_new_section(void);
+
     //! @brief Return binary's symbols as LIEF::Symbol
     virtual LIEF::symbols_t  get_abstract_symbols(void) override;
 
@@ -368,6 +390,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
 
     //! @brief Return binary's section as LIEF::Section
     virtual LIEF::sections_t get_abstract_sections(void) override;
+
+    virtual LIEF::relocations_t get_abstract_relocations(void) override;
 
     virtual std::vector<std::string> get_abstract_exported_functions(void) const override;
     virtual std::vector<std::string> get_abstract_imported_functions(void) const override;
@@ -381,6 +405,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     RichHeader           rich_header_;
     Header               header_;
     OptionalHeader       optional_header_;
+
+    int32_t             available_sections_space_;
 
     bool                 has_rich_header_;
     bool                 has_tls_;
@@ -406,6 +432,8 @@ class DLL_PUBLIC Binary : public LIEF::Binary {
     Debug                debug_;
     std::vector<uint8_t> overlay_;
     std::vector<uint8_t> dos_stub_;
+
+    LoadConfiguration*   load_configuration_;
 
     std::map<std::string, std::map<std::string, uint64_t>> hooks_;
 };

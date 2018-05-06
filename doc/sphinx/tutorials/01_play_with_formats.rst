@@ -3,6 +3,8 @@
 
 The objective of this tutorial is to give an overview of the LIEF's API to parse and manipulate formats
 
+By Romain Thomas - `@rh0main <https://twitter.com/rh0main>`_
+
 -----
 
 ELF
@@ -90,7 +92,7 @@ To have a better granularity on the location of the imported function in librari
 .. code-block:: python
 
   for imported_library in binary.imports:
-    print("Library name: " + imported_library
+    print("Library name: " + imported_library.name)
     for func in imported_library.entries:
       if not func.is_ordinal:
         print(func.name)

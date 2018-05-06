@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "LIEF/types.hpp"
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 #include "LIEF/visibility.h"
 
 #include "LIEF/MachO/Structures.hpp"
@@ -28,13 +28,16 @@
 
 namespace LIEF {
 namespace MachO {
-class DLL_PUBLIC LoadCommand : public Visitable {
+class LIEF_API LoadCommand : public Object {
   public:
     LoadCommand(void);
     LoadCommand(const load_command* command);
+    LoadCommand(LOAD_COMMAND_TYPES type, uint32_t size);
 
     LoadCommand& operator=(const LoadCommand& copy);
     LoadCommand(const LoadCommand& copy);
+
+    void swap(LoadCommand& other);
 
     virtual ~LoadCommand(void);
 
@@ -55,7 +58,7 @@ class DLL_PUBLIC LoadCommand : public Visitable {
 
     virtual void accept(Visitor& visitor) const override;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const LoadCommand& cmd);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const LoadCommand& cmd);
 
   protected:
     std::vector<uint8_t> originalData_;

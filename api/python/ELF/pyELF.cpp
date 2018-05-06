@@ -20,19 +20,18 @@
 //
 void init_ELF_module(py::module& m) {
   py::module LIEF_ELF_module = m.def_submodule("ELF", "Python API for ELF");
-
   // Enums
   init_ELF_Structures_enum(LIEF_ELF_module);
 
   // Objects
   init_ELF_Parser_class(LIEF_ELF_module);
+  init_ELF_SymbolVersion_class(LIEF_ELF_module);
   init_ELF_Binary_class(LIEF_ELF_module);
   init_ELF_Header_class(LIEF_ELF_module);
   init_ELF_Section_class(LIEF_ELF_module);
   init_ELF_Segment_class(LIEF_ELF_module);
   init_ELF_Symbol_class(LIEF_ELF_module);
   init_ELF_Relocation_class(LIEF_ELF_module);
-  init_ELF_SymbolVersion_class(LIEF_ELF_module);
   init_ELF_SymbolVersionAux_class(LIEF_ELF_module);
   init_ELF_SymbolVersionAuxRequirement_class(LIEF_ELF_module);
   init_ELF_SymbolVersionDefinition_class(LIEF_ELF_module);
@@ -43,14 +42,16 @@ void init_ELF_module(py::module& m) {
   init_ELF_DynamicEntryArray_class(LIEF_ELF_module);
   init_ELF_DynamicEntryRpath_class(LIEF_ELF_module);
   init_ELF_DynamicEntryRunPath_class(LIEF_ELF_module);
+  init_ELF_DynamicEntryFlags_class(LIEF_ELF_module);
   init_ELF_GnuHash_class(LIEF_ELF_module);
   init_ELF_SysvHash_class(LIEF_ELF_module);
   init_ELF_Builder_class(LIEF_ELF_module);
   init_ELF_Note_class(LIEF_ELF_module);
+  init_ELF_AndroidNote_class(LIEF_ELF_module);
 
   py::module LIEF_ELF32_module = LIEF_ELF_module.def_submodule("ELF32", "");
-  init_ELF32_Structures(LIEF_ELF32_module);
+  init_ELF32_sizes(LIEF_ELF32_module);
 
   py::module LIEF_ELF64_module = LIEF_ELF_module.def_submodule("ELF64", "");
-  init_ELF64_Structures(LIEF_ELF64_module);
+  init_ELF64_sizes(LIEF_ELF64_module);
 }

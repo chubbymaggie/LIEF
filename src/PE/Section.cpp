@@ -21,7 +21,7 @@
 #include <numeric>
 #include <iterator>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 #include "LIEF/exception.hpp"
 
 #include "LIEF/Abstract/Section.hpp"
@@ -35,6 +35,7 @@ namespace PE {
 Section::~Section(void) = default;
 
 Section::Section(void) :
+  LIEF::Section{},
   virtualSize_{0},
   content_{},
   pointerToRelocations_{0},
@@ -42,7 +43,7 @@ Section::Section(void) :
   numberOfRelocations_{0},
   numberOfLineNumbers_{0},
   characteristics_{0},
-  types_{SECTION_TYPES::UNKNOWN}
+  types_{PE_SECTION_TYPES::UNKNOWN}
 {}
 
 
@@ -56,9 +57,9 @@ Section::Section(const pe_section* header) :
   numberOfRelocations_{header->NumberOfRelocations},
   numberOfLineNumbers_{header->NumberOfLineNumbers},
   characteristics_{header->Characteristics},
-  types_{SECTION_TYPES::UNKNOWN}
+  types_{PE_SECTION_TYPES::UNKNOWN}
 {
-  this->name_            = header->Name;
+  this->name_            = std::string(header->Name, sizeof(header->Name)).c_str();
   this->virtual_address_ = header->VirtualAddress;
   this->size_            = header->SizeOfRawData;
   this->offset_          = header->PointerToRawData;
@@ -71,6 +72,7 @@ Section::Section(const std::vector<uint8_t>& data, const std::string& name, uint
   this->characteristics_ = characteristics;
   this->name_            = name;
   this->size_            = data.size();
+  this->content_         = data;
 }
 
 Section::Section(const std::string& name) :
@@ -90,12 +92,13 @@ uint32_t Section::sizeof_raw_data(void) const {
   return this->size();
 }
 
-
 std::vector<uint8_t> Section::content(void) const {
   return this->content_;
 }
 
-
+std::vector<uint8_t>& Section::content_ref(void) {
+  return this->content_;
+}
 
 uint32_t Section::pointerto_raw_data(void) const {
   return this->offset();
@@ -124,12 +127,12 @@ uint32_t Section::characteristics(void) const {
 }
 
 
-const std::set<SECTION_TYPES>& Section::types(void) const {
+const std::set<PE_SECTION_TYPES>& Section::types(void) const {
   return this->types_;
 }
 
 
-bool Section::is_type(SECTION_TYPES type) const {
+bool Section::is_type(PE_SECTION_TYPES type) const {
   return this->types_.count(type) != 0;
 }
 
@@ -197,17 +200,17 @@ void Section::sizeof_raw_data(uint32_t sizeOfRawData) {
 }
 
 
-void Section::type(SECTION_TYPES type) {
+void Section::type(PE_SECTION_TYPES type) {
   this->types_ = {type};
 }
 
 
-void Section::remove_type(SECTION_TYPES type) {
+void Section::remove_type(PE_SECTION_TYPES type) {
   this->types_.erase(type);
 }
 
 
-void Section::add_type(SECTION_TYPES type) {
+void Section::add_type(PE_SECTION_TYPES type) {
   this->types_.insert(type);
 }
 
@@ -227,19 +230,7 @@ void Section::add_characteristic(SECTION_CHARACTERISTICS characteristic) {
 }
 
 void Section::accept(LIEF::Visitor& visitor) const {
-
-  LIEF::Section::accept(visitor);
-
-  visitor.visit(this->sizeof_raw_data());
-  visitor.visit(this->virtual_size());
-  visitor.visit(this->virtual_address());
-  visitor.visit(this->pointerto_raw_data());
-  visitor.visit(this->pointerto_relocation());
-  visitor.visit(this->pointerto_line_numbers());
-  visitor.visit(this->numberof_relocations());
-  visitor.visit(this->numberof_line_numbers());
-  visitor.visit(this->characteristics());
-  visitor.visit(this->content());
+  visitor.visit(*this);
 }
 
 bool Section::operator==(const Section& rhs) const {

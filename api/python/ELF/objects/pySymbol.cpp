@@ -17,7 +17,7 @@
 
 #include "LIEF/ELF/Symbol.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 #include "LIEF/Abstract/Symbol.hpp"
 
 
@@ -39,14 +39,14 @@ void init_ELF_Symbol_class(py::module& m) {
         "Symbol's unmangled name")
 
     .def_property("type",
-        static_cast<getter_t<SYMBOL_TYPES>>(&Symbol::type),
-        static_cast<setter_t<SYMBOL_TYPES>>(&Symbol::type),
-        "A symbol's type provides a general classification for the associated entity")
+        static_cast<getter_t<ELF_SYMBOL_TYPES>>(&Symbol::type),
+        static_cast<setter_t<ELF_SYMBOL_TYPES>>(&Symbol::type),
+        "A symbol's type provides a general classification for the associated entity. See: " RST_CLASS_REF(lief.ELF.SYMBOL_TYPES) "")
 
     .def_property("binding",
         static_cast<getter_t<SYMBOL_BINDINGS>>(&Symbol::binding),
         static_cast<setter_t<SYMBOL_BINDINGS>>(&Symbol::binding),
-        "A symbol's binding determines the linkage visibility and behavior")
+        "A symbol's binding determines the linkage visibility and behavior. See " RST_CLASS_REF(lief.ELF.SYMBOL_BINDINGS) "")
 
     .def_property("information",
         static_cast<getter_t<uint8_t>>(&Symbol::information),
@@ -56,7 +56,16 @@ void init_ELF_Symbol_class(py::module& m) {
     .def_property("other",
         static_cast<getter_t<uint8_t>>(&Symbol::other),
         static_cast<setter_t<uint8_t>>(&Symbol::other),
-        "This member currently holds ``0`` and has no defined meaning.")
+        "This member **should** holds ``0`` and **should** not have defined meaning.\n\n"
+
+        "See: " RST_ATTR_REF(lief.ELF.Symbol.visibility) "")
+
+    .def_property("visibility",
+        static_cast<getter_t<ELF_SYMBOL_VISIBILITY>>(&Symbol::visibility),
+        static_cast<setter_t<ELF_SYMBOL_VISIBILITY>>(&Symbol::visibility),
+        "Symbol " RST_CLASS_REF(lief.ELF.SYMBOL_VISIBILITY) ". \n\n"
+
+        "It's basically an alias on " RST_ATTR_REF(lief.ELF.Symbol.other) "")
 
     .def_property("value",
         static_cast<getter_t<uint64_t>>(&Symbol::value),
@@ -91,6 +100,19 @@ void init_ELF_Symbol_class(py::module& m) {
         "Return the " RST_CLASS_REF(lief.ELF.SymbolVersion) " associated with this symbol",
         py::return_value_policy::reference_internal)
 
+    .def_property_readonly("is_static",
+        &Symbol::is_static,
+        "True if the symbol is a static one")
+
+    .def_property_readonly("is_function",
+        &Symbol::is_function,
+        "True if the symbol is a function")
+
+    .def_property_readonly("is_variable",
+        &Symbol::is_variable,
+        "True if the symbol is a variable")
+
+
     .def_property("exported",
         &Symbol::is_exported,
         &Symbol::set_exported,
@@ -105,7 +127,7 @@ void init_ELF_Symbol_class(py::module& m) {
     .def("__ne__", &Symbol::operator!=)
     .def("__hash__",
         [] (const Symbol& symbol) {
-          return LIEF::Hash::hash(symbol);
+          return Hash::hash(symbol);
         })
 
 

@@ -10,6 +10,10 @@ import logging
 import random
 import itertools
 
+from lief import Logger
+Logger.set_level(lief.LOGGING_LEVEL.WARNING)
+#Logger.set_level(lief.LOGGING_LEVEL.DEBUG)
+
 from subprocess import Popen
 
 from unittest import TestCase
@@ -72,11 +76,18 @@ class TestELF(TestCase):
                 0x12F7C433, 0xEB01FAB6, 0xECD54543, 0xAD3C9892, 0x72632CCF, 0x12F7A2B3, 0x7C92E3BB, 0x7C96F087]
         self.assertEqual(hash_values, hash_values_test)
 
+        #for s in list(ls.dynamic_symbols)[gnu_hash.symbol_index:]:
+        #    print(gnu_hash.check(s.name), s.name)
+        self.assertTrue(all(gnu_hash.check(x.name) for x in list(ls.dynamic_symbols)[gnu_hash.symbol_index:]))
+
+        self.assertFalse(gnu_hash.check("foofdsfdsfds"))
+        self.assertFalse(gnu_hash.check("fazertrvkdfsrezklqpfjeopqdi"))
+
     def test_permutation(self):
         samples = [
                 "ELF/ELF64_x86-64_binary_ls.bin",
-                "ELF/ELF64_x86-64_binary_gcc.bin",
-                "ELF/ELF64_x86-64_binary_openssl.bin",
+                #"ELF/ELF64_x86-64_binary_gcc.bin",
+                #"ELF/ELF64_x86-64_binary_openssl.bin",
         ]
         tmp_dir = tempfile.mkdtemp(suffix='_lief_test_permutation')
         for sample in samples:
@@ -90,12 +101,15 @@ class TestELF(TestCase):
             permutation = [i for i in range(1, len(dynamic_symbols))]
             random.shuffle(permutation)
             permutation = [0] + permutation
+            binary.permute_dynamic_symbols(permutation)
 
             builder = lief.ELF.Builder(binary)
             builder.empties_gnuhash(True)
             builder.build()
             output = os.path.join(tmp_dir, "{}.permutated".format(binary.name))
-            binary.write(output)
+            self.logger.debug("Output: {}".format(output))
+            builder.write(output)
+
             if not sys.platform.startswith("linux"):
                 return
 
@@ -125,7 +139,7 @@ class TestELF(TestCase):
         self.assertEqual(n3.type, lief.ELF.NOTE_TYPES.GOLD_VERSION)
 
         self.assertEqual(n1.abi, lief.ELF.NOTE_ABIS.LINUX)
-        self.assertEqual(n1.version, (2, 6, 32))
+        self.assertEqual(n1.version, [2, 6, 32])
 
         self.assertEqual(list(n2.description), [
             0x7e, 0x68, 0x6c, 0x7d,
@@ -136,6 +150,16 @@ class TestELF(TestCase):
             ])
 
         self.assertEqual("".join(map(chr, n3.description)), "gold 1.12")
+
+    def test_symbols_access(self):
+        hello = lief.parse(get_sample('ELF/ELF64_x86-64_binary_hello-gdb.bin'))
+
+        symbols         = hello.symbols
+        dynamic_symbols = hello.dynamic_symbols
+        static_symbols  = hello.static_symbols
+
+        self.assertTrue(all(s in symbols for s in dynamic_symbols))
+        self.assertTrue(all(s in symbols for s in static_symbols))
 
     def test_relocation_size(self):
         aarch64_toybox = lief.parse(get_sample('ELF/ELF64_AARCH64_piebinary_toybox.pie'))
@@ -194,15 +218,14 @@ class TestELF(TestCase):
         dynsym = list(rvs.dynamic_symbols)
         self.assertEqual(len(dynsym), 10)
 
+    def test_dynamic_flags(self):
+        sample = "ELF/ELF32_ARM_binary_ls.bin"
+        ls = lief.parse(get_sample(sample))
+        d_flags = ls.get(lief.ELF.DYNAMIC_TAGS.FLAGS)
+        d_flags_1 = ls.get(lief.ELF.DYNAMIC_TAGS.FLAGS_1)
 
-
-
-
-
-
-
-
-
+        self.assertIn(lief.ELF.DYNAMIC_FLAGS.BIND_NOW, d_flags)
+        self.assertIn(lief.ELF.DYNAMIC_FLAGS_1.NOW, d_flags_1)
 
 if __name__ == '__main__':
 

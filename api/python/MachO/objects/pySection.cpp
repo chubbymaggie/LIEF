@@ -16,7 +16,7 @@
 #include <string>
 #include <sstream>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/MachO/hash.hpp"
 #include "LIEF/MachO/Section.hpp"
 
 #include "pyMachO.hpp"
@@ -53,8 +53,8 @@ void init_MachO_Section_class(py::module& m) {
         "")
 
     .def_property("type",
-        static_cast<getter_t<SECTION_TYPES>>(&Section::type),
-        static_cast<setter_t<SECTION_TYPES>>(&Section::type),
+        static_cast<getter_t<MACHO_SECTION_TYPES>>(&Section::type),
+        static_cast<setter_t<MACHO_SECTION_TYPES>>(&Section::type),
         "")
 
     .def_property_readonly("relocations",
@@ -67,7 +67,7 @@ void init_MachO_Section_class(py::module& m) {
     .def("__ne__", &Section::operator!=)
     .def("__hash__",
         [] (const Section& section) {
-          return LIEF::Hash::hash(section);
+          return Hash::hash(section);
         })
 
 

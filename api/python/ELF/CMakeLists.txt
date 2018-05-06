@@ -1,6 +1,5 @@
 set(LIEF_PYTHON_ELF_SRC
   "${CMAKE_CURRENT_LIST_DIR}/pyELF.cpp"
-  "${CMAKE_CURRENT_LIST_DIR}/objects/pyNote.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pyDynamicEntry.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pySymbolVersionAuxRequirement.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pySymbolVersion.cpp"
@@ -11,6 +10,7 @@ set(LIEF_PYTHON_ELF_SRC
   "${CMAKE_CURRENT_LIST_DIR}/objects/pyHeader.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pySymbolVersionAux.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pyDynamicEntryArray.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/objects/pyDynamicEntryFlags.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pySegment.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pySection.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pyDynamicEntryRpath.cpp"
@@ -23,7 +23,15 @@ set(LIEF_PYTHON_ELF_SRC
   "${CMAKE_CURRENT_LIST_DIR}/objects/pySysvHash.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/objects/pyBuilder.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/pyELFStructures.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/pySizes.cpp"
 )
+
+set(LIEF_PYTHON_ELF_NOTE
+  "${CMAKE_CURRENT_LIST_DIR}/objects/pyNote.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/objects/pyAndroidNote.cpp"
+)
+
+list(APPEND LIEF_PYTHON_ELF_SRC ${LIEF_PYTHON_ELF_NOTE})
 
 set(LIEF_PYTHON_ELF_HDR
   "${CMAKE_CURRENT_LIST_DIR}/pyELF.hpp")

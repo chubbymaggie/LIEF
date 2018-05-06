@@ -26,7 +26,9 @@ using namespace LIEF::MachO;
 
 PYBIND11_MAKE_OPAQUE(std::vector<Binary*>)
 
+void init_MachO_ParserConfig_class(py::module&);
 void init_MachO_Parser_class(py::module&);
+void init_MachO_FatBinary_class(py::module&);
 void init_MachO_Binary_class(py::module&);
 void init_MachO_Header_class(py::module&);
 void init_MachO_LoadCommand_class(py::module&);
@@ -34,13 +36,25 @@ void init_MachO_DylibCommand_class(py::module&);
 void init_MachO_SegmentCommand_class(py::module&);
 void init_MachO_Section_class(py::module&);
 void init_MachO_Symbol_class(py::module&);
+void init_MachO_SymbolCommand_class(py::module&);
 void init_MachO_UUIDCommand_class(py::module&);
 void init_MachO_MainCommand_class(py::module&);
 void init_MachO_DylinkerCommand_class(py::module&);
 void init_MachO_DyldInfo_class(py::module&);
 void init_MachO_FunctionStarts_class(py::module&);
 void init_MachO_SourceVersion_class(py::module&);
+void init_MachO_VersionMin_class(py::module&);
 void init_MachO_Relocation_class(py::module&);
+void init_MachO_RelocationObject_class(py::module&);
+void init_MachO_RelocationDyld_class(py::module&);
+void init_MachO_BindingInfo_class(py::module&);
+void init_MachO_ExportInfo_class(py::module&);
+void init_MachO_ThreadCommand_class(py::module&);
+void init_MachO_RPathCommand_class(py::module&);
+void init_MachO_DynamicSymbolCommand_class(py::module&);
+void init_MachO_CodeSignature_class(py::module&);
+void init_MachO_DataInCode_class(py::module&);
+void init_MachO_DataCodeEntry_class(py::module&);
 
 // Enums
 void init_MachO_Structures_enum(py::module&);

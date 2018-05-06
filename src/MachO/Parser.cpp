@@ -21,7 +21,7 @@
 #include <stdexcept>
 #include <functional>
 
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 
 #include "LIEF/filesystem/filesystem.h"
 #include "LIEF/exception.hpp"
@@ -36,73 +36,100 @@ namespace MachO {
 Parser::Parser(void) = default;
 Parser::~Parser(void) = default;
 
-Parser::Parser(const std::string& file) :
-  LIEF::Parser{file}
+
+// From File
+Parser::Parser(const std::string& file, const ParserConfig& conf) :
+  LIEF::Parser{file},
+  stream_{std::unique_ptr<VectorStream>(new VectorStream{file})},
+  binaries_{},
+  config_{conf}
 {
-
-  if (not is_macho(file)) {
-    throw bad_file("'" + file + "' is not a MachO binary");
-  }
-
-  this->stream_ = std::unique_ptr<VectorStream>(new VectorStream{file});
   this->build();
-}
-
-
-std::vector<Binary*> Parser::parse(const std::string& filename) {
-  Parser parser{filename};
-  for (Binary* binary : parser.binaries_) {
-    binary->name(filesystem::path(filename).filename());
+  for (Binary* binary : this->binaries_) {
+    binary->name(filesystem::path(file).filename());
   }
 
-  return parser.binaries_;
 }
+
+
+FatBinary* Parser::parse(const std::string& filename, const ParserConfig& conf) {
+  if (not is_macho(filename)) {
+    throw bad_file("'" + filename + "' is not a MachO binary");
+  }
+
+  Parser parser{filename, conf};
+  return new FatBinary{parser.binaries_};
+}
+
+// From Vector
+Parser::Parser(const std::vector<uint8_t>& data, const std::string& name, const ParserConfig& conf) :
+  stream_{std::unique_ptr<VectorStream>(new VectorStream{data})},
+  binaries_{},
+  config_{conf}
+{
+  this->build();
+
+  for (Binary* binary : this->binaries_) {
+    binary->name(name);
+  }
+}
+
+
+FatBinary* Parser::parse(const std::vector<uint8_t>& data, const std::string& name, const ParserConfig& conf) {
+  if (not is_macho(data)) {
+    throw bad_file("'" + name + "' is not a MachO binary");
+  }
+
+  Parser parser{data, name, conf};
+  return new FatBinary{parser.binaries_};
+}
+
 
 
 void Parser::build_fat(void) {
 
-  const fat_header *header = reinterpret_cast<const fat_header*>(
-      this->stream_->read(0, sizeof(fat_header)));
+  const fat_header *header = &this->stream_->peek<fat_header>(0);
   uint32_t nb_arch = Swap4Bytes(header->nfat_arch);
-  LOG(DEBUG) << "In this Fat binary there is " << std::dec << nb_arch << " archs" << std::endl;
+  VLOG(VDEBUG) << "In this Fat binary there is " << std::dec << nb_arch << " archs" << std::endl;
 
   if (nb_arch > 10) {
     throw parser_error("Too much architectures");
   }
 
-  const fat_arch* arch = reinterpret_cast<const fat_arch*>(
-      this->stream_->read(sizeof(fat_header), sizeof(fat_arch)));
+  const fat_arch* arch = &this->stream_->peek<fat_arch>(sizeof(fat_header));
 
   for (size_t i = 0; i < nb_arch; ++i) {
 
     const uint32_t offset = BinaryStream::swap_endian(arch[i].offset);
     const uint32_t size   = BinaryStream::swap_endian(arch[i].size);
 
-    LOG(DEBUG) << "Dealing with arch[" << std::dec << i << "]" << std::endl;
-    LOG(DEBUG) << "[" << std::dec << i << "] offset: 0x" << std::hex << offset << std::endl;
-    LOG(DEBUG) << "[" << std::dec << i << "] size:   0x" << std::hex << size << std::endl;
+    VLOG(VDEBUG) << "Dealing with arch[" << std::dec << i << "]" << std::endl;
+    VLOG(VDEBUG) << "[" << std::dec << i << "] offset: 0x" << std::hex << offset << std::endl;
+    VLOG(VDEBUG) << "[" << std::dec << i << "] size:   0x" << std::hex << size << std::endl;
 
-    const uint8_t* raw = reinterpret_cast<const uint8_t*>(
-      this->stream_->read(offset, size));
+    const uint8_t* raw = this->stream_->peek_array<uint8_t>(offset, size);
 
     std::vector<uint8_t> data = {raw, raw + size};
 
-    Binary *binary = BinaryParser{std::move(data), offset}.get_binary();
+    Binary *binary = BinaryParser{std::move(data), offset, this->config_}.get_binary();
     this->binaries_.push_back(binary);
   }
 }
 
 void Parser::build(void) {
-  MACHO_TYPES type = static_cast<MACHO_TYPES>(
-      *reinterpret_cast<const uint32_t*>(this->stream_->read(0, sizeof(uint32_t))));
+  try {
+    MACHO_TYPES type = static_cast<MACHO_TYPES>(this->stream_->peek<uint32_t>(0));
 
-  // Fat binary
-  if (type == MACHO_TYPES::FAT_MAGIC or
-      type == MACHO_TYPES::FAT_CIGAM) {
-    this->build_fat();
-  } else { // fit binary
-    Binary *binary = BinaryParser(std::move(this->stream_)).get_binary();
-    this->binaries_.push_back(binary);
+    // Fat binary
+    if (type == MACHO_TYPES::FAT_MAGIC or
+        type == MACHO_TYPES::FAT_CIGAM) {
+      this->build_fat();
+    } else { // fit binary
+      Binary *binary = BinaryParser(std::move(this->stream_), 0, this->config_).get_binary();
+      this->binaries_.push_back(binary);
+    }
+  } catch (const std::exception& e) {
+    VLOG(VDEBUG) << e.what();
   }
 }
 

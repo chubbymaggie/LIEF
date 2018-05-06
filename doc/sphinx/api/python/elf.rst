@@ -110,6 +110,17 @@ Dynamic Entry Array
 
 ----------
 
+Dynamic Entry Flags
+*******************
+
+.. autoclass:: lief.ELF.DynamicEntryFlags
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
+----------
+
 Relocations
 ***********
 
@@ -192,6 +203,16 @@ Note
 
 ----------
 
+Android Note
+*************
+
+.. autoclass:: lief.ELF.AndroidNote
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
 
 Builder
 *******
@@ -204,6 +225,16 @@ Builder
 
 Enums
 *****
+
+Identity
+~~~~~~~~
+
+.. autoclass:: lief.ELF.IDENTITY
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
 
 
 ELF Class
@@ -230,6 +261,17 @@ ELF OS/ABI
 ~~~~~~~~~~
 
 .. autoclass:: lief.ELF.OS_ABI
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+
+Symbol section index
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.SYMBOL_SECTION_INDEX
   :members:
   :inherited-members:
   :undoc-members:
@@ -317,6 +359,30 @@ Dynamic tags
   :inherited-members:
   :undoc-members:
 
+----------
+
+Dynamic flags
+~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.DYNAMIC_FLAGS
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+
+Dynamic flags 1
+~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.DYNAMIC_FLAGS_1
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+
 Symbol types
 ~~~~~~~~~~~~
 
@@ -324,6 +390,8 @@ Symbol types
   :members:
   :inherited-members:
   :undoc-members:
+
+----------
 
 Symbol bindings
 ~~~~~~~~~~~~~~~
@@ -333,6 +401,19 @@ Symbol bindings
   :inherited-members:
   :undoc-members:
 
+----------
+
+
+Symbol Visibility
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.SYMBOL_VISIBILITY
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
 Relocations x86-64
 ~~~~~~~~~~~~~~~~~~
 
@@ -340,6 +421,8 @@ Relocations x86-64
   :members:
   :inherited-members:
   :undoc-members:
+
+----------
 
 
 Relocations x86 (i386)
@@ -350,6 +433,8 @@ Relocations x86 (i386)
   :inherited-members:
   :undoc-members:
 
+----------
+
 Relocations ARM
 ~~~~~~~~~~~~~~~
 
@@ -357,6 +442,19 @@ Relocations ARM
   :members:
   :inherited-members:
   :undoc-members:
+
+----------
+
+
+Relocations AARCH64
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.RELOCATION_AARCH64
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
 
 
 Dynamic symbols counting
@@ -367,6 +465,18 @@ Dynamic symbols counting
   :inherited-members:
   :undoc-members:
 
+----------
+
+Relocation purpose
+~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.RELOCATION_PURPOSES
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
 
 Note types
 ~~~~~~~~~~
@@ -375,6 +485,8 @@ Note types
   :members:
   :inherited-members:
   :undoc-members:
+
+----------
 
 
 Note ABIs
@@ -385,13 +497,48 @@ Note ABIs
   :inherited-members:
   :undoc-members:
 
-Relocation purposes
+----------
+
+ARM Processor flags
 ~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: lief.ELF.RELOCATION_PURPOSES
+.. autoclass:: lief.ELF.ARM_EFLAGS
   :members:
   :inherited-members:
   :undoc-members:
+
+----------
+
+MIPS Processor flags
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.MIPS_EFLAGS
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+PPC64 Processor flags
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.PPC64_EFLAGS
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+----------
+
+
+Hexagon Processor flags
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: lief.ELF.HEXAGON_EFLAGS
+  :members:
+  :inherited-members:
+  :undoc-members:
+
+
 
 
 

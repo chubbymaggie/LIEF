@@ -22,13 +22,18 @@
 #include <iostream>
 
 #include "LIEF/types.hpp"
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 #include "LIEF/visibility.h"
 
 namespace LIEF {
-class DLL_PUBLIC Section : public Visitable {
+class LIEF_API Section : public Object {
   public:
+
+    static constexpr size_t npos = -1;
+
     Section(void);
+    Section(const std::string& name);
+
     virtual ~Section(void);
 
     Section& operator=(const Section&);
@@ -65,13 +70,28 @@ class DLL_PUBLIC Section : public Visitable {
     //! @brief Section's entropy
     double entropy(void) const;
 
+    // Search functions
+    // ================
+    size_t search(uint64_t integer, size_t pos, size_t size) const;
+    size_t search(const std::vector<uint8_t>& pattern, size_t pos = 0) const;
+    size_t search(const std::string& pattern, size_t pos = 0) const;
+    size_t search(uint64_t integer, size_t pos = 0) const;
+
+    // Search all functions
+    // ====================
+    std::vector<size_t> search_all(uint64_t v, size_t size) const;
+
+    std::vector<size_t> search_all(uint64_t v) const;
+
+    std::vector<size_t> search_all(const std::string& v) const;
+
     //! @brief Method so that the ``visitor`` can visit us
     virtual void accept(Visitor& visitor) const override;
 
     bool operator==(const Section& rhs) const;
     bool operator!=(const Section& rhs) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Section& entry);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Section& entry);
 
   protected:
     std::string name_;
@@ -79,8 +99,12 @@ class DLL_PUBLIC Section : public Visitable {
     uint64_t    size_;
     uint64_t    offset_;
 
-};
+  private:
+    template<typename T>
+    std::vector<size_t> search_all_(const T& v) const;
 
+
+};
 }
 
 #endif

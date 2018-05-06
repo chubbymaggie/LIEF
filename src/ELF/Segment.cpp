@@ -17,11 +17,11 @@
 #include <algorithm>
 #include <iterator>
 
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 
 #include "LIEF/exception.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 
 #include "LIEF/ELF/Segment.hpp"
 #include "LIEF/ELF/EnumToString.hpp"
@@ -32,7 +32,7 @@ namespace ELF {
 
 Segment::~Segment(void) = default;
 Segment::Segment(const Segment& other) :
-  Visitable{other},
+  Object{other},
   type_{other.type_},
   flags_{other.flags_},
   file_offset_{other.file_offset_},
@@ -50,7 +50,7 @@ Segment::Segment(const Segment& other) :
 
 Segment::Segment(const Elf64_Phdr* header) :
   type_{static_cast<SEGMENT_TYPES>(header->p_type)},
-  flags_{header->p_flags},
+  flags_{static_cast<ELF_SEGMENT_FLAGS>(header->p_flags)},
   file_offset_{header->p_offset},
   virtual_address_{header->p_vaddr},
   physical_address_{header->p_paddr},
@@ -64,7 +64,7 @@ Segment::Segment(const Elf64_Phdr* header) :
 
 Segment::Segment(const Elf32_Phdr* header) :
   type_{static_cast<SEGMENT_TYPES>(header->p_type)},
-  flags_{header->p_flags},
+  flags_{static_cast<ELF_SEGMENT_FLAGS>(header->p_flags)},
   file_offset_{header->p_offset},
   virtual_address_{header->p_vaddr},
   physical_address_{header->p_paddr},
@@ -78,7 +78,7 @@ Segment::Segment(const Elf32_Phdr* header) :
 
 Segment::Segment(void) :
   type_{static_cast<SEGMENT_TYPES>(0)},
-  flags_{0},
+  flags_{ELF_SEGMENT_FLAGS::PF_NONE},
   file_offset_{0},
   virtual_address_{0},
   physical_address_{0},
@@ -134,7 +134,7 @@ SEGMENT_TYPES Segment::type(void) const {
 }
 
 
-uint32_t Segment::flag(void) const {
+ELF_SEGMENT_FLAGS Segment::flags(void) const {
   return this->flags_;
 }
 
@@ -170,51 +170,84 @@ uint64_t Segment::alignment(void) const {
 
 std::vector<uint8_t> Segment::content(void) const {
   if (this->datahandler_ == nullptr) {
-    LOG(DEBUG) << "Content from cache";
+    VLOG(VDEBUG) << "Content from cache";
     return this->content_c_;
-  } else {
-    LOG(DEBUG) << std::hex << "Content from Data Handler [0x" << this->file_offset() << ", 0x" << this->physical_size() << "]";
-    return this->datahandler_->content(this->file_offset(), this->physical_size(), DataHandler::Node::SEGMENT);
   }
+
+  DataHandler::Node& node = this->datahandler_->get(
+      this->file_offset(),
+      this->physical_size(),
+      DataHandler::Node::SEGMENT);
+  const std::vector<uint8_t>& binary_content = this->datahandler_->content();
+  return {binary_content.data() + node.offset(), binary_content.data() + node.offset() + node.size()};
 }
 
 
 it_const_sections Segment::sections(void) const {
-  return it_const_sections{this->sections_};
+  return {this->sections_};
 }
 
 
 it_sections Segment::sections(void) {
-  return it_sections{this->sections_};
+  return {this->sections_};
 }
 
-bool Segment::has_flag(SEGMENT_FLAGS flag) const {
-  return ((this->flags_ & static_cast<uint32_t>(flag)) != 0);
+bool Segment::has(ELF_SEGMENT_FLAGS flag) const {
+  return ((this->flags() & flag) != ELF_SEGMENT_FLAGS::PF_NONE);
 }
 
 
-void Segment::flag(uint32_t flags) {
+bool Segment::has(const Section& section) const {
+
+  auto&& it_section = std::find_if(
+      std::begin(this->sections_),
+      std::end(this->sections_),
+      [&section] (Section* s) {
+        return *s == section;
+      });
+  return it_section != std::end(this->sections_);
+}
+
+
+bool Segment::has(const std::string& name) const {
+  auto&& it_section = std::find_if(
+      std::begin(this->sections_),
+      std::end(this->sections_),
+      [&name] (Section* s) {
+        return s->name() == name;
+      });
+  return it_section != std::end(this->sections_);
+}
+
+
+void Segment::flags(ELF_SEGMENT_FLAGS flags) {
   this->flags_ = flags;
 }
 
 
-void Segment::add_flag(SEGMENT_FLAGS flag) {
-  this->flags_ |= static_cast<uint32_t>(flag);
+void Segment::add(ELF_SEGMENT_FLAGS flag) {
+  this->flags(this->flags() | flag);
 }
 
 
-void Segment::remove_flag(SEGMENT_FLAGS flag) {
-  this->flags_ &= ~ static_cast<uint32_t>(flag);
+void Segment::remove(ELF_SEGMENT_FLAGS flag) {
+  this->flags(this->flags() & ~flag);
 }
 
 
 void Segment::clear_flags(void) {
-  this->flags_ = 0;
+  this->flags_ = ELF_SEGMENT_FLAGS::PF_NONE;
 }
 
 
-void Segment::file_offset(uint64_t fileOffset) {
-  this->file_offset_ = fileOffset;
+void Segment::file_offset(uint64_t file_offset) {
+  if (this->datahandler_ != nullptr) {
+    DataHandler::Node& node = this->datahandler_->get(
+        this->file_offset(), this->physical_size(),
+        DataHandler::Node::SEGMENT);
+    node.offset(file_offset);
+  }
+  this->file_offset_ = file_offset;
 }
 
 
@@ -230,7 +263,9 @@ void Segment::physical_address(uint64_t physicalAddress) {
 
 void Segment::physical_size(uint64_t physicalSize) {
   if (this->datahandler_ != nullptr) {
-    DataHandler::Node& node = this->datahandler_->find(this->file_offset(), this->size_, false, DataHandler::Node::SEGMENT);
+    DataHandler::Node& node = this->datahandler_->get(
+        this->file_offset(), this->physical_size(),
+        DataHandler::Node::SEGMENT);
     node.size(physicalSize);
   }
   this->size_ = physicalSize;
@@ -252,27 +287,82 @@ void Segment::type(SEGMENT_TYPES type) {
 
 void Segment::content(const std::vector<uint8_t>& content) {
   if (this->datahandler_ == nullptr) {
-    LOG(DEBUG) << "Set content in the cache";
+    VLOG(VDEBUG) << "Set content in the cache";
     this->content_c_ = content;
-  } else {
-    LOG(DEBUG) << "Set content in the data handler [0x" << std::hex << this->file_offset() << ", 0x" << content.size() << "]";
-    this->datahandler_->content(this->file_offset(), content, DataHandler::Node::SEGMENT);
+
+    this->physical_size(content.size());
+    return;
   }
 
-  this->physical_size(content.size());
+  VLOG(VDEBUG) << "Set content in the data handler [0x" << std::hex << this->file_offset() << ", 0x" << content.size() << "]";
+
+  DataHandler::Node& node = this->datahandler_->get(
+      this->file_offset(),
+      this->physical_size(),
+      DataHandler::Node::SEGMENT);
+
+  std::vector<uint8_t>& binary_content = this->datahandler_->content();
+  this->datahandler_->reserve(node.offset(), content.size());
+
+  if (node.size() < content.size()) {
+    LOG(WARNING) << "You inserted data in segment '"
+                 << to_string(this->type()) << "' It may lead to overaly!" << std::endl;
+  }
+
+  this->physical_size(node.size());
+
+  std::copy(
+      std::begin(content),
+      std::end(content),
+      std::begin(binary_content) + node.offset());
+}
+
+
+void Segment::content(std::vector<uint8_t>&& content) {
+  if (this->datahandler_ == nullptr) {
+    VLOG(VDEBUG) << "Set content in the cache";
+    this->content_c_ = std::move(content);
+
+    this->physical_size(content.size());
+    return;
+  }
+
+  VLOG(VDEBUG) << "Set content in the data handler [0x" << std::hex << this->file_offset() << ", 0x" << content.size() << "]";
+
+  DataHandler::Node& node = this->datahandler_->get(
+      this->file_offset(),
+      this->physical_size(),
+      DataHandler::Node::SEGMENT);
+
+  std::vector<uint8_t>& binary_content = this->datahandler_->content();
+  this->datahandler_->reserve(node.offset(), content.size());
+
+  if (node.size() < content.size()) {
+    LOG(WARNING) << "You inserted data in segment '"
+                 << to_string(this->type()) << "' It may lead to overaly!" << std::endl;
+  }
+
+  this->physical_size(node.size());
+
+  std::move(
+      std::begin(content),
+      std::end(content),
+      std::begin(binary_content) + node.offset());
 }
 
 void Segment::accept(Visitor& visitor) const {
+  visitor.visit(*this);
+}
 
-  visitor.visit(this->type());
-  visitor.visit(this->flag());
-  visitor.visit(this->file_offset());
-  visitor.visit(this->virtual_address());
-  visitor.visit(this->physical_address());
-  visitor.visit(this->physical_size());
-  visitor.visit(this->virtual_size());
-  visitor.visit(this->alignment());
-  visitor.visit(this->content());
+
+Segment& Segment::operator+=(ELF_SEGMENT_FLAGS c) {
+  this->add(c);
+  return *this;
+}
+
+Segment& Segment::operator-=(ELF_SEGMENT_FLAGS c) {
+  this->remove(c);
+  return *this;
 }
 
 bool Segment::operator==(const Segment& rhs) const {
@@ -288,24 +378,24 @@ bool Segment::operator!=(const Segment& rhs) const {
 std::ostream& operator<<(std::ostream& os, const ELF::Segment& segment) {
 
 
-  std::string flag = "";
+  std::string flags = "---";
 
-  if (segment.has_flag(SEGMENT_FLAGS::PF_R)) {
-    flag += "R";
+  if (segment.has(ELF_SEGMENT_FLAGS::PF_R)) {
+    flags[0] = 'r';
   }
 
-  if (segment.has_flag(SEGMENT_FLAGS::PF_W)) {
-    flag += "W";
+  if (segment.has(ELF_SEGMENT_FLAGS::PF_W)) {
+    flags[1] = 'w';
   }
 
-  if (segment.has_flag(SEGMENT_FLAGS::PF_X)) {
-    flag += "X";
+  if (segment.has(ELF_SEGMENT_FLAGS::PF_X)) {
+    flags[2] = 'x';
   }
 
   os << std::hex;
   os << std::left
      << std::setw(18) << to_string(segment.type())
-     << std::setw(10) << flag
+     << std::setw(10) << flags
      << std::setw(10) << segment.file_offset()
      << std::setw(10) << segment.virtual_address()
      << std::setw(10) << segment.physical_address()

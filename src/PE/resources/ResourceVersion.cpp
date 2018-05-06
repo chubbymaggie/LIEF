@@ -18,8 +18,9 @@
 
 #include "LIEF/exception.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 
+#include "LIEF/utils.hpp"
 #include "LIEF/PE/utils.hpp"
 
 #include "LIEF/PE/resources/ResourceVersion.hpp"
@@ -139,20 +140,7 @@ void ResourceVersion::remove_var_file_info(void) {
 
 
 void ResourceVersion::accept(Visitor& visitor) const {
-  visitor.visit(this->type());
-  visitor.visit(this->key());
-
-  if (this->has_fixed_file_info()) {
-    visitor(this->fixed_file_info());
-  }
-
-  if (this->has_string_file_info()) {
-    visitor(this->string_file_info());
-  }
-
-  if (this->has_var_file_info()) {
-    visitor(this->var_file_info());
-  }
+  visitor.visit(*this);
 }
 
 

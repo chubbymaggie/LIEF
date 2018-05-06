@@ -269,6 +269,22 @@ struct pe_debug {
 };
 
 
+struct pe_pdb_70 {
+  uint32_t cv_signature;
+  uint8_t  signature[16];
+  uint32_t age;
+  char*    filename;
+};
+
+struct pe_pdb_20 {
+  uint32_t cv_signature;
+  uint32_t offset;
+  uint32_t signature;
+  uint32_t age;
+  char*    filename;
+};
+
+
 struct pe_resource_directory_table {
   uint32_t Characteristics;
   uint32_t TimeDateStamp;
@@ -439,6 +455,13 @@ struct pe_dialog_item_template {
   int16_t cx;
   int16_t cy;
   uint16_t id;
+};
+
+struct pe_code_integrity {
+  uint16_t Flags;
+  uint16_t Catalog;
+  uint32_t CatalogOffset;
+  uint32_t Reserved;
 };
 
 

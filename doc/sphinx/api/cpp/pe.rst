@@ -75,6 +75,31 @@ TLS
 
 ----------
 
+Debug
+*****
+
+.. doxygenclass:: LIEF::PE::Debug
+  :project: lief
+
+----------
+
+Code View
+*********
+
+.. doxygenclass:: LIEF::PE::CodeView
+  :project: lief
+
+----------
+
+Code View PDB
+*************
+
+.. doxygenclass:: LIEF::PE::CodeViewPDB
+  :project: lief
+
+----------
+
+
 Symbol
 *******
 
@@ -304,6 +329,72 @@ Rich Entry
 
 ----------
 
+Code Integrity
+**************
+
+.. doxygenclass:: LIEF::PE::CodeIntegrity
+  :project: lief
+
+----------
+
+
+Load Configuration
+******************
+
+.. doxygenclass:: LIEF::PE::LoadConfiguration
+  :project: lief
+
+
+Load Configuration V0
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV0
+  :project: lief
+
+Load Configuration V1
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV1
+  :project: lief
+
+Load Configuration V2
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV2
+  :project: lief
+
+Load Configuration V3
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV3
+  :project: lief
+
+Load Configuration V4
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV4
+  :project: lief
+
+Load Configuration V5
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV5
+  :project: lief
+
+Load Configuration V6
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV6
+  :project: lief
+
+Load Configuration V7
+~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: LIEF::PE::LoadConfigurationV7
+  :project: lief
+
+-------------------
+
 Utilities
 *********
 
@@ -317,12 +408,6 @@ Utilities
   :project: lief
 
 .. doxygenfunction:: LIEF::PE::is_pe(const std::vector< uint8_t > &)
-  :project: lief
-
-.. doxygenfunction:: LIEF::PE::u16tou8
-  :project: lief
-
-.. doxygenfunction:: LIEF::PE::u8tou16
   :project: lief
 
 .. doxygenfunction:: LIEF::PE::get_imphash
@@ -409,4 +494,13 @@ Enums
    :project: lief
 
 .. doxygenenum:: LIEF::PE::FIXED_VERSION_FILE_SUB_TYPES
+   :project: lief
+
+.. doxygenenum:: LIEF::PE::WIN_VERSION
+   :project: lief
+
+.. doxygenenum:: LIEF::PE::GUARD_CF_FLAGS
+   :project: lief
+
+.. doxygenenum:: LIEF::PE::GUARD_RF_FLAGS
    :project: lief

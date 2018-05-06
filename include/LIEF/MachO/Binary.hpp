@@ -38,6 +38,11 @@
 #include "LIEF/MachO/DyldInfo.hpp"
 #include "LIEF/MachO/FunctionStarts.hpp"
 #include "LIEF/MachO/SourceVersion.hpp"
+#include "LIEF/MachO/VersionMin.hpp"
+#include "LIEF/MachO/ThreadCommand.hpp"
+#include "LIEF/MachO/RPathCommand.hpp"
+#include "LIEF/MachO/CodeSignature.hpp"
+#include "LIEF/MachO/DataInCode.hpp"
 
 namespace LIEF {
 namespace MachO {
@@ -46,7 +51,7 @@ class BinaryParser;
 class Builder;
 
 //! @brief Class which represent a MachO binary
-class DLL_PUBLIC Binary : public LIEF::Binary  {
+class LIEF_API Binary : public LIEF::Binary  {
 
   friend class BinaryParser;
   friend class Builder;
@@ -66,18 +71,26 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     it_symbols       symbols(void);
     it_const_symbols symbols(void) const;
 
-    static bool                 is_exported(const Symbol& symbol);
+    //! @brief If a symbol with the given name exists
+    bool has_symbol(const std::string& name) const;
+
+    //! @brief Return Symbol from the given name
+    const Symbol& get_symbol(const std::string& name) const;
+    Symbol& get_symbol(const std::string& name);
+
+    //! @brief Check if the given symbol is an exported one
+    static bool is_exported(const Symbol& symbol);
 
     //! @brief Return binary's exported symbols
-    it_exported_symbols       get_exported_symbols(void);
-    it_const_exported_symbols get_exported_symbols(void) const;
+    it_exported_symbols       exported_symbols(void);
+    it_const_exported_symbols exported_symbols(void) const;
 
-    //! @brief Check if the given symbol is a imported one
+    //! @brief Check if the given symbol is an imported one
     static bool is_imported(const Symbol& symbol);
 
     //! @brief Return binary's imported symbols
-    it_imported_symbols       get_imported_symbols(void);
-    it_const_imported_symbols get_imported_symbols(void) const;
+    it_imported_symbols       imported_symbols(void);
+    it_const_imported_symbols imported_symbols(void) const;
 
     //! @brief Return binary imported libraries (MachO::DylibCommand)
     it_libraries       libraries(void);
@@ -90,6 +103,10 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     //! @brief Return binary's @link MachO::Section sections @endlink
     it_sections       sections(void);
     it_const_sections sections(void) const;
+
+    //! @brief Return binary's @link MachO::Relocation relocations @endlink
+    it_relocations       relocations(void);
+    it_const_relocations relocations(void) const;
 
     //! @brief Reconstruct the binary object and write it in `filename`
     //! @param filename Path to write the reconstructed binary
@@ -108,7 +125,7 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     uint64_t imagebase(void) const;
 
     //! @brief Return binary's loader (e.g. ``/usr/lib/dyld``)
-    const std::string& get_loader(void) const;
+    const std::string& loader(void) const;
 
     //! @brief Check if a section with the given name exists
     bool has_section(const std::string& name) const;
@@ -128,9 +145,13 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     Section&       section_from_offset(uint64_t offset);
     const Section& section_from_offset(uint64_t offset) const;
 
+    //! @brief Return binary's @link MachO::Section section @endlink
+    //! which holds the given virtual address
+    Section&       section_from_virtual_address(uint64_t virtual_address);
+    const Section& section_from_virtual_address(uint64_t virtual_address) const;
+
     //! @brief Convert a virtual address to an offset in the file
     uint64_t virtual_address_to_offset(uint64_t virtualAddress) const;
-
 
     // @brief Return binary's @link MachO::SegmentCommand segment command
     // which hold the offset
@@ -144,6 +165,13 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     // which hold the virtual address
     SegmentCommand&       segment_from_virtual_address(uint64_t virtual_address);
     const SegmentCommand& segment_from_virtual_address(uint64_t virtual_address) const;
+
+    //! @brief Return the range of virtual addresses
+    std::pair<uint64_t, uint64_t> va_ranges(void) const;
+
+    //! @brief Check if the given address is comprise between the lowest
+    //! virtual address and the biggest one
+    bool is_valid_addr(uint64_t address) const;
 
     //! @brief Method so that the ``visitor`` can visit us
     virtual void accept(LIEF::Visitor& visitor) const override;
@@ -159,7 +187,7 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     //!
     //! @param[in] address Address to patch
     //! @param[in] patch_value Patch to apply
-    virtual void patch_address(uint64_t address, const std::vector<uint8_t>& patch_value) override;
+    virtual void patch_address(uint64_t address, const std::vector<uint8_t>& patch_value, LIEF::Binary::VA_TYPES addr_type = LIEF::Binary::VA_TYPES::AUTO) override;
 
 
     //! @brief Patch the address with the given value
@@ -167,19 +195,26 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     //! @param[in] address Address to patch
     //! @param[in] patch_value Patch to apply
     //! @param[in] size Size of the value in **bytes** (1, 2, ... 8)
-    virtual void patch_address(uint64_t address, uint64_t patch_value, size_t size = sizeof(uint64_t)) override;
+    virtual void patch_address(uint64_t address, uint64_t patch_value, size_t size = sizeof(uint64_t), LIEF::Binary::VA_TYPES addr_type = LIEF::Binary::VA_TYPES::AUTO) override;
 
     //! @brief Return the content located at virtual address
-    virtual std::vector<uint8_t> get_content_from_virtual_address(uint64_t virtual_address, uint64_t size) const override;
+    virtual std::vector<uint8_t> get_content_from_virtual_address(uint64_t virtual_address, uint64_t size,
+        LIEF::Binary::VA_TYPES addr_type = LIEF::Binary::VA_TYPES::AUTO) const override;
 
     virtual uint64_t entrypoint(void) const override;
+
+    //! @brief Check if the binary is position independent
+    virtual bool is_pie(void) const override;
+
+    //! @brief Check if the binary uses ``NX`` protection
+    virtual bool has_nx(void) const override;
 
     //! @brief ``true`` if the binary has an entrypoint.
     //!
     //! Basically for libraries it will return ``false``
     bool has_entrypoint(void) const;
 
-    //! @brief ``true`` if the binary has an MachO::UUIDCommand command.
+    //! @brief ``true`` if the binary has a MachO::UUIDCommand command.
     bool has_uuid(void) const;
 
     //! @brief Return the MachO::UUIDCommand
@@ -221,14 +256,64 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     SourceVersion&       source_version(void);
     const SourceVersion& source_version(void) const;
 
-    template<class T>
-    bool has_command(void) const;
+    //! @brief ``true`` if the binary has a MachO::VersionMin command.
+    bool has_version_min(void) const;
+
+    //! @brief Return the MachO::VersionMin command
+    VersionMin&       version_min(void);
+    const VersionMin& version_min(void) const;
+
+
+    //! @brief ``true`` if the binary has a MachO::ThreadCommand command.
+    bool has_thread_command(void) const;
+
+    //! @brief Return the MachO::ThreadCommand command
+    ThreadCommand&       thread_command(void);
+    const ThreadCommand& thread_command(void) const;
+
+    //! @brief ``true`` if the binary has a MachO::RPathCommand command.
+    bool has_rpath(void) const;
+
+    //! @brief Return the MachO::RPathCommand command
+    RPathCommand&       rpath(void);
+    const RPathCommand& rpath(void) const;
+
+    //! @brief ``true`` if the binary has a MachO::SymbolCommand command.
+    bool has_symbol_command(void) const;
+
+    //! @brief Return the MachO::SymbolCommand
+    SymbolCommand&       symbol_command(void);
+    const SymbolCommand& symbol_command(void) const;
+
+    //! @brief ``true`` if the binary has a MachO::DynamicSymbolCommand command.
+    bool has_dynamic_symbol_command(void) const;
+
+    //! @brief Return the MachO::SymbolCommand
+    DynamicSymbolCommand&       dynamic_symbol_command(void);
+    const DynamicSymbolCommand& dynamic_symbol_command(void) const;
+
+    //! @brief ``true`` if the binary is signed.
+    bool has_code_signature(void) const;
+
+    //! @brief Return the MachO::Signature
+    CodeSignature&       code_signature(void);
+    const CodeSignature& code_signature(void) const;
+
+    //! @brief ``true`` if the binaryhas a MachO::DataInCode command.
+    bool has_data_in_code(void) const;
+
+    //! @brief Return the MachO::Signature
+    DataInCode&       data_in_code(void);
+    const DataInCode& data_in_code(void) const;
 
     template<class T>
-    T& get_command(void);
+    LIEF_LOCAL bool has_command(void) const;
 
     template<class T>
-    const T& get_command(void) const;
+    LIEF_LOCAL T& command(void);
+
+    template<class T>
+    LIEF_LOCAL const T& command(void) const;
 
     template<class T>
     size_t count_commands(void) const;
@@ -241,6 +326,7 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     virtual LIEF::Header              get_abstract_header(void) const override;
     virtual LIEF::sections_t          get_abstract_sections(void) override;
     virtual LIEF::symbols_t           get_abstract_symbols(void) override;
+    virtual LIEF::relocations_t       get_abstract_relocations(void) override;
     virtual std::vector<std::string>  get_abstract_exported_functions(void) const override;
     virtual std::vector<std::string>  get_abstract_imported_functions(void) const override;
     virtual std::vector<std::string>  get_abstract_imported_libraries(void) const override;
@@ -249,6 +335,9 @@ class DLL_PUBLIC Binary : public LIEF::Binary  {
     Header     header_;
     commands_t commands_;
     symbols_t  symbols_;
+
+    // Cached relocations from segment / sections
+    mutable relocations_t relocations_;
 
   protected:
     uint64_t fat_offset_ = 0;

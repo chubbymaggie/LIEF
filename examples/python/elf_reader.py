@@ -11,6 +11,10 @@ from lief import ELF
 import sys
 import os
 import traceback
+import textwrap
+
+from lief import Logger
+Logger.set_level(lief.LOGGING_LEVEL.FATAL)
 
 from optparse import OptionParser
 terminal_rows, terminal_columns = 100, 100
@@ -54,9 +58,23 @@ def print_header(binary):
 
     print("== Header ==\n")
     format_str = "{:<30} {:<30}"
-    format_hex = "{:<30} 0x{:<28x}"
+    format_hex = "{:<30} 0x{:<13x}"
     format_dec = "{:<30} {:<30d}"
     format_ide = "{:<30} {:<02x} {:<02x} {:<02x} {:<02x}"
+
+    eflags_str = ""
+    if header.machine_type == lief.ELF.ARCH.ARM:
+        eflags_str = " - ".join([str(s).split(".")[-1] for s in header.arm_flags_list])
+
+    if header.machine_type in [lief.ELF.ARCH.MIPS, lief.ELF.ARCH.MIPS_RS3_LE, lief.ELF.ARCH.MIPS_X]:
+        eflags_str = " - ".join([str(s).split(".")[-1] for s in header.mips_flags_list])
+
+    if header.machine_type == lief.ELF.ARCH.PPC64:
+        eflags_str = " - ".join([str(s).split(".")[-1] for s in header.ppc64_flags_list])
+
+    if header.machine_type == lief.ELF.ARCH.HEXAGON:
+        eflags_str = " - ".join([str(s).split(".")[-1] for s in header.hexagon_flags_list])
+
     print(format_ide.format("Magic:",                 identity[0], identity[1], identity[2], identity[3]))
     print(format_str.format("Class:",                 str(header.identity_class).split(".")[-1]))
     print(format_str.format("Endianness:",            str(header.identity_data).split(".")[-1]))
@@ -68,7 +86,7 @@ def print_header(binary):
     print(format_hex.format("Entry Point:",           header.entrypoint))
     print(format_hex.format("Program Header Offset:", header.program_header_offset))
     print(format_hex.format("Section Header Offset:", header.section_header_offset))
-    print(format_hex.format("Processor flags:",       header.processor_flag))
+    print(format_hex.format("Processor flags:",       header.processor_flag) + eflags_str)
     print(format_dec.format("Header Size:",           header.header_size))
     print(format_dec.format("Program Header Size:",   header.program_header_size))
     print(format_dec.format("Section Header Size:",   header.section_header_size))
@@ -109,14 +127,25 @@ def print_segments(binary):
         f_title = "|{:<30} | {:<10}| {:<18}| {:<17}| {:<17}| {:<17}| {:<19}|"
         f_value = "|{:<30} | {:<10}| 0x{:<16x}| 0x{:<15x}| 0x{:<15x}| 0x{:<15x}| {}"
         print(f_title.format("Type",
-            "Flag", "File offset", "Virtual Address", "Virtual Size", "Size", "Sections"))
+            "Flags", "File offset", "Virtual Address", "Virtual Size", "Size", "Sections"))
 
         for segment in segments:
             sections = segment.sections
             s = ", ".join([section.name for section in sections])
+            flags_str = ["-"] * 3
+            if ELF.SEGMENT_FLAGS.R in segment:
+                flags_str[0] = "r"
+
+            if ELF.SEGMENT_FLAGS.W in segment:
+                flags_str[1] = "w"
+
+            if ELF.SEGMENT_FLAGS.X in segment:
+                flags_str[2] = "x"
+            flags_str = "".join(flags_str)
+
             print(f_value.format(
                 str(segment.type).split(".")[-1],
-                segment.flag,
+                flags_str,
                 segment.file_offset,
                 segment.virtual_address,
                 segment.virtual_size,
@@ -127,38 +156,49 @@ def print_segments(binary):
 
 @exceptions_handler(Exception)
 def print_dynamic_entries(binary):
-    dynamicEntries = binary.dynamic_entries
+    dynamic_entries = binary.dynamic_entries
     # Dynamic entries
-    if len(dynamicEntries) > 0:
-        print("== Dynamic entries ==\n")
-        f_title = "|{:<12} | {:<10}| {:<20}|"
-        f_value = "|{:<12} | 0x{:<8x}| {:<20}|"
-        print(f_title.format("Tag", "Value", "Info"))
-        for dynEntry in dynamicEntries:
-            if dynEntry.tag == ELF.DYNAMIC_TAGS.NULL:
-                continue
-            if dynEntry.tag in [ELF.DYNAMIC_TAGS.SONAME, ELF.DYNAMIC_TAGS.NEEDED, ELF.DYNAMIC_TAGS.RUNPATH, ELF.DYNAMIC_TAGS.RPATH]:
-                print(f_value.format(str(dynEntry.tag).split(".")[-1], dynEntry.value, dynEntry.name))
-            elif dynEntry.tag in [ELF.DYNAMIC_TAGS.INIT_ARRAY,ELF.DYNAMIC_TAGS.FINI_ARRAY]:
-                print(f_value.format(str(dynEntry.tag).split(".")[-1], dynEntry.value, ", ".join(map(hex, dynEntry.array))))
-            else:
-                print(f_value.format(str(dynEntry.tag).split(".")[-1], dynEntry.value, ""))
+    if len(dynamic_entries) == 0:
+        return
 
-        print("")
+    print("== Dynamic entries ==\n")
+    f_title = "|{:<16} | {:<10}| {:<20}|"
+    f_value = "|{:<16} | 0x{:<8x}| {:<20}|"
+    print(f_title.format("Tag", "Value", "Info"))
+    for entry in dynamic_entries:
+        if entry.tag == ELF.DYNAMIC_TAGS.NULL:
+            continue
+
+        if entry.tag in [ELF.DYNAMIC_TAGS.SONAME, ELF.DYNAMIC_TAGS.NEEDED, ELF.DYNAMIC_TAGS.RUNPATH, ELF.DYNAMIC_TAGS.RPATH]:
+            print(f_value.format(str(entry.tag).split(".")[-1], entry.value, entry.name))
+        elif type(entry) is ELF.DynamicEntryArray: # [ELF.DYNAMIC_TAGS.INIT_ARRAY,ELF.DYNAMIC_TAGS.FINI_ARRAY]:
+            print(f_value.format(str(entry.tag).split(".")[-1], entry.value, ", ".join(map(hex, entry.array))))
+        elif entry.tag == ELF.DYNAMIC_TAGS.FLAGS:
+            flags_str = " - ".join([str(ELF.DYNAMIC_FLAGS(s)).split(".")[-1] for s in entry.flags])
+            print(f_value.format(str(entry.tag).split(".")[-1], entry.value, flags_str))
+        elif entry.tag == ELF.DYNAMIC_TAGS.FLAGS_1:
+            flags_str = " - ".join([str(ELF.DYNAMIC_FLAGS_1(s)).split(".")[-1] for s in entry.flags])
+            print(f_value.format(str(entry.tag).split(".")[-1], entry.value, flags_str))
+        else:
+            print(f_value.format(str(entry.tag).split(".")[-1], entry.value, ""))
+
+    print("")
 
 
 @exceptions_handler(Exception)
-def print_symbols(symbols):
+def print_symbols(symbols, no_trunc):
     try:
         maxsize = max([len(symbol.demangled_name) for symbol in symbols])
     except:
         maxsize = max([len(symbol.name) for symbol in symbols])
-    maxsize = min(maxsize, terminal_columns - 54) if terminal_columns > 54 else terminal_columns
 
-    f_title = "|{:<" + str(maxsize) + "} | {:<7}| {:<8}| {:<17}| {:<4}|"
-    f_value = "|{:<" + str(maxsize) + "} | {:<7}| {:<8x}| {:<17}| {:<4}|"
+    SIZE = 70
+    maxsize = min(maxsize, terminal_columns - SIZE) if terminal_columns > SIZE else terminal_columns
 
-    print(f_title.format("Name", "Type", "Value", "Version", "I/E"))
+    f_title = "|{:<" + str(maxsize) + "} | {:<7}| {:<8}| {:<10}| {:<8}| {:<4}| {:<14}|"
+    f_value = "|{:<" + str(maxsize) + "} | {:<7}| {:<8x}| {:<10}| {:<8}| {:<4}| {:<14}|"
+
+    print(f_title.format("Name", "Type", "Value", "Visibility", "Binding", "I/E", "Version"))
 
     for symbol in symbols:
         symbol_version = symbol.symbol_version if symbol.has_version else ""
@@ -174,30 +214,41 @@ def print_symbols(symbols):
             symbol_name = symbol.demangled_name
         except:
             symbol_name = symbol.name
+
+        wrapped = textwrap.wrap(symbol_name, maxsize)
+
+        if len(wrapped) <= 1 or no_trunc:
+            symbol_name = symbol_name
+        else:
+            symbol_name = wrapped[0][:-3] + "..."
+
         print(f_value.format(
             symbol_name,
             str(symbol.type).split(".")[-1],
             symbol.value,
-            str(symbol_version),
-            import_export))
+            str(symbol.visibility).split(".")[-1],
+            str(symbol.binding).split(".")[-1],
+            import_export,
+            str(symbol_version)
+            ))
 
 @exceptions_handler(Exception)
-def print_dynamic_symbols(binary):
+def print_dynamic_symbols(binary, args):
     print("== Dynamic symbols ==\n")
-    print_symbols(binary.dynamic_symbols)
+    print_symbols(binary.dynamic_symbols, args.no_trunc)
 
 
 @exceptions_handler(Exception)
-def print_static_symbols(binary):
+def print_static_symbols(binary, args):
     print("== Static symbols ==\n")
-    print_symbols(binary.static_symbols)
+    print_symbols(binary.static_symbols, args.no_trunc)
 
 @exceptions_handler(Exception)
 def print_relocations(binary, relocations):
-    f_title = "|{:<10} | {:<10}| {:<8}| {:<15}| {:<30} |"
-    f_value = "|0x{:<8x} | {:<10}| {:<8d}| {:<15}| {:<30} |"
+    f_title = "|{:<10} | {:<10}| {:<8}| {:<8}| {:<15}| {:<30} |"
+    f_value = "|0x{:<8x} | {:<10}| {:<8d}| {:<8x}| {:<15}| {:<30} |"
 
-    print(f_title.format("Address", "Type", "Size", "Purpose", "Symbol"))
+    print(f_title.format("Address", "Type", "Size", "Addend", "Purpose", "Symbol"))
 
     for relocation in relocations:
         type = str(relocation.type)
@@ -216,6 +267,7 @@ def print_relocations(binary, relocations):
             relocation.address,
             type.split(".")[-1],
             relocation.size,
+            relocation.addend,
             str(relocation.purpose).split(".")[-1],
             symbol_name))
 
@@ -240,38 +292,24 @@ def print_all_relocations(binary):
         print_relocations(binary, object_relocations)
 
 @exceptions_handler(Exception)
-def print_exported_symbols(binary):
+def print_exported_symbols(binary, args):
     symbols = binary.exported_symbols
-    f_title = "|{:<30} | {:<7}| {:<8}| {:<15}|"
-    f_value = "|{:<30} | {:<7}| {:<8x}| {:<15}|"
+
     print("== Exported symbols ==\n")
-    print(f_title.format("Name", "Type", "Value", "Version"))
-
-    for symbol in symbols:
-        symbol_version = symbol.symbol_version if symbol.has_version else ""
-
-        print(f_value.format(
-            str(symbol.name),
-            str(symbol.type).split(".")[-1],
-            symbol.value,
-            str(symbol_version)))
+    if len(symbols) == 0:
+        print("No exports!")
+        return
+    print_symbols(symbols, args.no_trunc)
 
 @exceptions_handler(Exception)
-def print_imported_symbols(binary):
+def print_imported_symbols(binary, args):
     symbols = binary.imported_symbols
-    f_title = "|{:<30} | {:<7}| {:<8}| {:<15}|"
-    f_value = "|{:<30} | {:<7}| {:<8x}| {:<15}|"
     print("== Imported symbols ==\n")
-    print(f_title.format("Name", "Type", "Value", "Version"))
 
-    for symbol in symbols:
-        symbol_version = symbol.symbol_version if symbol.has_version else ""
-
-        print(f_value.format(
-            str(symbol.name),
-            str(symbol.type).split(".")[-1],
-            symbol.value,
-            str(symbol_version)))
+    if len(symbols) == 0:
+        print("No imports!")
+        return
+    print_symbols(symbols, args.no_trunc)
 
 @exceptions_handler(Exception)
 def print_information(binary):
@@ -282,6 +320,8 @@ def print_information(binary):
     print(format_str.format("Name:",         binary.name))
     print(format_hex.format("Address base:", binary.imagebase))
     print(format_hex.format("Virtual size:", binary.virtual_size))
+    print(format_str.format("PIE:",          str(binary.is_pie)))
+    print(format_str.format("NX:",           str(binary.has_nx)))
 
 @exceptions_handler(Exception)
 def print_gnu_hash(binary):
@@ -345,14 +385,17 @@ def print_notes(binary):
         print(format_str.format("Description:", description_str))
 
         if ELF.NOTE_TYPES(note.type) == ELF.NOTE_TYPES.ABI_TAG:
-            try:
-                version = note.version
+
+            if type(note) == lief.ELF.AndroidNote:
+                print(format_dec.format("SDK Version:",      note.sdk_version))
+                print(format_str.format("NDK Version:",      note.ndk_version))
+                print(format_str.format("NDK build number:", note.ndk_build_number))
+            else:
+                version     = note.version
                 version_str = "{:d}.{:d}.{:d}".format(version[0], version[1], version[2])
 
                 print(format_str.format("ABI:",     note.abi))
                 print(format_str.format("Version:", version_str))
-            except lief.corrupted:
-                pass
 
         if ELF.NOTE_TYPES(note.type) == ELF.NOTE_TYPES.GOLD_VERSION:
             print(format_str.format("Version:", "".join(map(chr, note.description))))
@@ -435,6 +478,11 @@ def main():
             action='store_true', dest='show_notes',
             help='Display Notes')
 
+    optparser.add_option('--no-trunc',
+            action='store_true', dest='no_trunc',
+            default=False,
+            help='Do not trunc symbol names ...')
+
     options, args = optparser.parse_args()
 
     if options.help or len(args) == 0:
@@ -467,19 +515,19 @@ def main():
         print_dynamic_entries(binary)
 
     if (options.show_symbols or options.show_all or options.show_dynamic_symbols) and len(binary.dynamic_symbols) > 0:
-        print_dynamic_symbols(binary)
+        print_dynamic_symbols(binary, options)
 
     if (options.show_symbols or options.show_all or options.show_static_symbols) and len(binary.static_symbols) > 0:
-        print_static_symbols(binary)
+        print_static_symbols(binary, options)
 
     if options.show_relocs or options.show_all:
         print_all_relocations(binary)
 
     if options.show_imported_symbols or options.show_all:
-        print_imported_symbols(binary)
+        print_imported_symbols(binary, options)
 
     if options.show_exported_symbols or options.show_all:
-        print_exported_symbols(binary)
+        print_exported_symbols(binary, options)
 
     if (options.show_gnu_hash or options.show_all) and binary.use_gnu_hash:
         print_gnu_hash(binary)

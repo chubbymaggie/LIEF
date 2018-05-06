@@ -15,13 +15,14 @@
  */
 #include "LIEF/ELF/Structures.hpp"
 #include "LIEF/ELF/EnumToString.hpp"
+#include "frozen.hpp"
 #include <map>
 
 namespace LIEF {
 namespace ELF {
 
 const char* to_string(SYMBOL_BINDINGS e) {
-  const std::map<SYMBOL_BINDINGS, const char*> enumStrings {
+  CONST_MAP(SYMBOL_BINDINGS, const char*, 8) enumStrings {
     { SYMBOL_BINDINGS::STB_LOCAL,      "LOCAL" },
     { SYMBOL_BINDINGS::STB_GLOBAL,     "GLOBAL" },
     { SYMBOL_BINDINGS::STB_WEAK,       "WEAK" },
@@ -37,7 +38,7 @@ const char* to_string(SYMBOL_BINDINGS e) {
 
 
 const char* to_string(E_TYPE e) {
-  const std::map<E_TYPE, const char*> enumStrings {
+  CONST_MAP(E_TYPE, const char*, 7) enumStrings {
     { E_TYPE::ET_NONE,   "NONE" },
     { E_TYPE::ET_REL,    "RELOCATABLE" },
     { E_TYPE::ET_EXEC,   "EXECUTABLE" },
@@ -52,7 +53,7 @@ const char* to_string(E_TYPE e) {
 
 
 const char* to_string(VERSION e) {
-  const std::map<VERSION, const char*> enumStrings {
+  CONST_MAP(VERSION, const char*, 2) enumStrings {
     { VERSION::EV_NONE,    "NONE" },
     { VERSION::EV_CURRENT, "CURRENT" }
   };
@@ -62,7 +63,7 @@ const char* to_string(VERSION e) {
 
 
 const char* to_string(ARCH e) {
-  const std::map<ARCH, const char*> enumStrings {
+  CONST_MAP(ARCH, const char*, 175) enumStrings {
     { ARCH::EM_NONE,          "None" },
     { ARCH::EM_M32,           "M32"},
     { ARCH::EM_SPARC,         "SPARC"},
@@ -244,7 +245,8 @@ const char* to_string(ARCH e) {
 }
 
 const char* to_string(SEGMENT_TYPES e) {
-  const std::map<SEGMENT_TYPES, const char*> enumStrings {
+  CONST_MAP(SEGMENT_TYPES, const char*, 24) enumStrings {
+    { SEGMENT_TYPES::PT_NULL,          "NULL" },
     { SEGMENT_TYPES::PT_LOAD,          "LOAD" },
     { SEGMENT_TYPES::PT_DYNAMIC,       "DYNAMIC" },
     { SEGMENT_TYPES::PT_INTERP,        "INTERP" },
@@ -274,7 +276,7 @@ const char* to_string(SEGMENT_TYPES e) {
 }
 
 const char* to_string(DYNAMIC_TAGS e) {
-  const std::map<DYNAMIC_TAGS, const char*> enumStrings {
+  CONST_MAP(DYNAMIC_TAGS, const char*, 91) enumStrings {
     { DYNAMIC_TAGS::DT_NULL,                       "NULL"},
     { DYNAMIC_TAGS::DT_NEEDED,                     "NEEDED"},
     { DYNAMIC_TAGS::DT_PLTRELSZ,                   "PLTRELSZ"},
@@ -306,7 +308,7 @@ const char* to_string(DYNAMIC_TAGS e) {
     { DYNAMIC_TAGS::DT_FINI_ARRAYSZ,               "FINI_ARRAYSZ"},
     { DYNAMIC_TAGS::DT_RUNPATH,                    "RUNPATH"},
     { DYNAMIC_TAGS::DT_FLAGS,                      "FLAGS"},
-    { DYNAMIC_TAGS::DT_ENCODING,                   "ENCODING"},
+    //{ DYNAMIC_TAGS::DT_ENCODING,                   "ENCODING"}, // SKIPED
     { DYNAMIC_TAGS::DT_PREINIT_ARRAY,              "PREINIT_ARRAY"},
     { DYNAMIC_TAGS::DT_PREINIT_ARRAYSZ,            "PREINIT_ARRAYSZ"},
     { DYNAMIC_TAGS::DT_LOOS,                       "LOOS"},
@@ -373,98 +375,98 @@ const char* to_string(DYNAMIC_TAGS e) {
 }
 
 
-const char* to_string(SECTION_TYPES e) {
-  const std::map<SECTION_TYPES, const char*> enumStrings {
-    { SECTION_TYPES::SHT_NULL,               "NULL"},
-    { SECTION_TYPES::SHT_PROGBITS,           "PROGBITS"},
-    { SECTION_TYPES::SHT_SYMTAB,             "SYMTAB"},
-    { SECTION_TYPES::SHT_STRTAB,             "STRTAB"},
-    { SECTION_TYPES::SHT_RELA,               "RELA"},
-    { SECTION_TYPES::SHT_HASH,               "HASH"},
-    { SECTION_TYPES::SHT_DYNAMIC,            "DYNAMIC"},
-    { SECTION_TYPES::SHT_NOTE,               "NOTE"},
-    { SECTION_TYPES::SHT_NOBITS,             "NOBITS"},
-    { SECTION_TYPES::SHT_REL,                "REL"},
-    { SECTION_TYPES::SHT_SHLIB,              "SHLIB"},
-    { SECTION_TYPES::SHT_DYNSYM,             "DYNSYM"},
-    { SECTION_TYPES::SHT_INIT_ARRAY,         "INIT_ARRAY"},
-    { SECTION_TYPES::SHT_FINI_ARRAY,         "FINI_ARRAY"},
-    { SECTION_TYPES::SHT_PREINIT_ARRAY,      "PREINIT_ARRAY"},
-    { SECTION_TYPES::SHT_GROUP,              "GROUP"},
-    { SECTION_TYPES::SHT_SYMTAB_SHNDX,       "SYMTAB_SHNDX"},
-    { SECTION_TYPES::SHT_LOOS,               "LOOS"},
-    { SECTION_TYPES::SHT_GNU_ATTRIBUTES,     "GNU_ATTRIBUTES"},
-    { SECTION_TYPES::SHT_GNU_HASH,           "GNU_HASH"},
-    { SECTION_TYPES::SHT_GNU_verdef,         "GNU_VERDEF"},
-    { SECTION_TYPES::SHT_GNU_verneed,        "GNU_VERNEED"},
-    { SECTION_TYPES::SHT_GNU_versym,         "GNU_VERSYM"},
-    { SECTION_TYPES::SHT_HIOS,               "HIOS"},
-    { SECTION_TYPES::SHT_LOPROC,             "LOPROC"},
-    { SECTION_TYPES::SHT_ARM_EXIDX,          "ARM_EXIDX"},
-    { SECTION_TYPES::SHT_ARM_PREEMPTMAP,     "ARM_PREEMPTMAP"},
-    { SECTION_TYPES::SHT_ARM_ATTRIBUTES,     "ARM_ATTRIBUTES"},
-    { SECTION_TYPES::SHT_ARM_DEBUGOVERLAY,   "ARM_DEBUGOVERLAY"},
-    { SECTION_TYPES::SHT_ARM_OVERLAYSECTION, "ARM_OVERLAYSECTION"},
-    { SECTION_TYPES::SHT_HEX_ORDERED,        "HEX_ORDERED"},
-    { SECTION_TYPES::SHT_X86_64_UNWIND,      "X86_64_UNWIND"},
-    { SECTION_TYPES::SHT_MIPS_REGINFO,       "MIPS_REGINFO"},
-    { SECTION_TYPES::SHT_MIPS_OPTIONS,       "MIPS_OPTIONS"},
-    { SECTION_TYPES::SHT_MIPS_ABIFLAGS,      "MIPS_ABIFLAGS"},
-    { SECTION_TYPES::SHT_HIPROC,             "HIPROC"},
-    { SECTION_TYPES::SHT_LOUSER,             "LOUSER"},
-    { SECTION_TYPES::SHT_HIUSER,             "HIUSER"}
+const char* to_string(ELF_SECTION_TYPES e) {
+  CONST_MAP(ELF_SECTION_TYPES, const char*, 38) enumStrings {
+    { ELF_SECTION_TYPES::SHT_NULL,               "NULL"},
+    { ELF_SECTION_TYPES::SHT_PROGBITS,           "PROGBITS"},
+    { ELF_SECTION_TYPES::SHT_SYMTAB,             "SYMTAB"},
+    { ELF_SECTION_TYPES::SHT_STRTAB,             "STRTAB"},
+    { ELF_SECTION_TYPES::SHT_RELA,               "RELA"},
+    { ELF_SECTION_TYPES::SHT_HASH,               "HASH"},
+    { ELF_SECTION_TYPES::SHT_DYNAMIC,            "DYNAMIC"},
+    { ELF_SECTION_TYPES::SHT_NOTE,               "NOTE"},
+    { ELF_SECTION_TYPES::SHT_NOBITS,             "NOBITS"},
+    { ELF_SECTION_TYPES::SHT_REL,                "REL"},
+    { ELF_SECTION_TYPES::SHT_SHLIB,              "SHLIB"},
+    { ELF_SECTION_TYPES::SHT_DYNSYM,             "DYNSYM"},
+    { ELF_SECTION_TYPES::SHT_INIT_ARRAY,         "INIT_ARRAY"},
+    { ELF_SECTION_TYPES::SHT_FINI_ARRAY,         "FINI_ARRAY"},
+    { ELF_SECTION_TYPES::SHT_PREINIT_ARRAY,      "PREINIT_ARRAY"},
+    { ELF_SECTION_TYPES::SHT_GROUP,              "GROUP"},
+    { ELF_SECTION_TYPES::SHT_SYMTAB_SHNDX,       "SYMTAB_SHNDX"},
+    { ELF_SECTION_TYPES::SHT_LOOS,               "LOOS"},
+    { ELF_SECTION_TYPES::SHT_GNU_ATTRIBUTES,     "GNU_ATTRIBUTES"},
+    { ELF_SECTION_TYPES::SHT_GNU_HASH,           "GNU_HASH"},
+    { ELF_SECTION_TYPES::SHT_GNU_verdef,         "GNU_VERDEF"},
+    { ELF_SECTION_TYPES::SHT_GNU_verneed,        "GNU_VERNEED"},
+    { ELF_SECTION_TYPES::SHT_GNU_versym,         "GNU_VERSYM"},
+    { ELF_SECTION_TYPES::SHT_HIOS,               "HIOS"},
+    { ELF_SECTION_TYPES::SHT_LOPROC,             "LOPROC"},
+    { ELF_SECTION_TYPES::SHT_ARM_EXIDX,          "ARM_EXIDX"},
+    { ELF_SECTION_TYPES::SHT_ARM_PREEMPTMAP,     "ARM_PREEMPTMAP"},
+    { ELF_SECTION_TYPES::SHT_ARM_ATTRIBUTES,     "ARM_ATTRIBUTES"},
+    { ELF_SECTION_TYPES::SHT_ARM_DEBUGOVERLAY,   "ARM_DEBUGOVERLAY"},
+    { ELF_SECTION_TYPES::SHT_ARM_OVERLAYSECTION, "ARM_OVERLAYSECTION"},
+    { ELF_SECTION_TYPES::SHT_HEX_ORDERED,        "HEX_ORDERED"},
+    { ELF_SECTION_TYPES::SHT_X86_64_UNWIND,      "X86_64_UNWIND"},
+    { ELF_SECTION_TYPES::SHT_MIPS_REGINFO,       "MIPS_REGINFO"},
+    { ELF_SECTION_TYPES::SHT_MIPS_OPTIONS,       "MIPS_OPTIONS"},
+    { ELF_SECTION_TYPES::SHT_MIPS_ABIFLAGS,      "MIPS_ABIFLAGS"},
+    { ELF_SECTION_TYPES::SHT_HIPROC,             "HIPROC"},
+    { ELF_SECTION_TYPES::SHT_LOUSER,             "LOUSER"},
+    { ELF_SECTION_TYPES::SHT_HIUSER,             "HIUSER"}
   };
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "UNDEFINED" : it->second;
 }
 
-const char* to_string(SECTION_FLAGS e) {
-  const std::map<SECTION_FLAGS, const char*> enumStrings {
-    { SECTION_FLAGS::SHF_NONE,             "NONE"},
-    { SECTION_FLAGS::SHF_WRITE,            "WRITE"},
-    { SECTION_FLAGS::SHF_ALLOC,            "ALLOC"},
-    { SECTION_FLAGS::SHF_EXECINSTR,        "EXECINSTR"},
-    { SECTION_FLAGS::SHF_MERGE,            "MERGE"},
-    { SECTION_FLAGS::SHF_STRINGS,          "STRINGS"},
-    { SECTION_FLAGS::SHF_INFO_LINK,        "INFO_LINK"},
-    { SECTION_FLAGS::SHF_LINK_ORDER,       "LINK_ORDER"},
-    { SECTION_FLAGS::SHF_OS_NONCONFORMING, "OS_NONCONFORMING"},
-    { SECTION_FLAGS::SHF_GROUP,            "GROUP"},
-    { SECTION_FLAGS::SHF_TLS,              "TLS"},
-    { SECTION_FLAGS::SHF_EXCLUDE,          "EXCLUDE"},
-    { SECTION_FLAGS::XCORE_SHF_CP_SECTION, "XCORE_SHF_CP_SECTION"},
-    { SECTION_FLAGS::XCORE_SHF_DP_SECTION, "XCORE_SHF_CP_SECTION"},
-    { SECTION_FLAGS::SHF_MASKOS,           "MASKOS"},
-    { SECTION_FLAGS::SHF_MASKPROC,         "MASKPROC"},
-    { SECTION_FLAGS::SHF_HEX_GPREL,        "HEX_GPREL"},
-    { SECTION_FLAGS::SHF_MIPS_NODUPES,     "MIPS_NODUPES"},
-    { SECTION_FLAGS::SHF_MIPS_NAMES,       "MIPS_NAMES"},
-    { SECTION_FLAGS::SHF_MIPS_LOCAL,       "MIPS_LOCAL"},
-    { SECTION_FLAGS::SHF_MIPS_NOSTRIP,     "MIPS_NOSTRIP"},
-    { SECTION_FLAGS::SHF_MIPS_GPREL,       "MIPS_GPREL"},
-    { SECTION_FLAGS::SHF_MIPS_MERGE,       "MIPS_MERGE"},
-    { SECTION_FLAGS::SHF_MIPS_ADDR,        "MIPS_ADDR"},
-    { SECTION_FLAGS::SHF_MIPS_STRING,      "MIPS_STRING"}
+const char* to_string(ELF_SECTION_FLAGS e) {
+  CONST_MAP(ELF_SECTION_FLAGS, const char*, 25) enumStrings {
+    { ELF_SECTION_FLAGS::SHF_NONE,             "NONE"},
+    { ELF_SECTION_FLAGS::SHF_WRITE,            "WRITE"},
+    { ELF_SECTION_FLAGS::SHF_ALLOC,            "ALLOC"},
+    { ELF_SECTION_FLAGS::SHF_EXECINSTR,        "EXECINSTR"},
+    { ELF_SECTION_FLAGS::SHF_MERGE,            "MERGE"},
+    { ELF_SECTION_FLAGS::SHF_STRINGS,          "STRINGS"},
+    { ELF_SECTION_FLAGS::SHF_INFO_LINK,        "INFO_LINK"},
+    { ELF_SECTION_FLAGS::SHF_LINK_ORDER,       "LINK_ORDER"},
+    { ELF_SECTION_FLAGS::SHF_OS_NONCONFORMING, "OS_NONCONFORMING"},
+    { ELF_SECTION_FLAGS::SHF_GROUP,            "GROUP"},
+    { ELF_SECTION_FLAGS::SHF_TLS,              "TLS"},
+    { ELF_SECTION_FLAGS::SHF_EXCLUDE,          "EXCLUDE"},
+    { ELF_SECTION_FLAGS::XCORE_SHF_CP_SECTION, "XCORE_SHF_CP_SECTION"},
+    { ELF_SECTION_FLAGS::XCORE_SHF_DP_SECTION, "XCORE_SHF_CP_SECTION"},
+    { ELF_SECTION_FLAGS::SHF_MASKOS,           "MASKOS"},
+    { ELF_SECTION_FLAGS::SHF_MASKPROC,         "MASKPROC"},
+    { ELF_SECTION_FLAGS::SHF_HEX_GPREL,        "HEX_GPREL"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_NODUPES,     "MIPS_NODUPES"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_NAMES,       "MIPS_NAMES"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_LOCAL,       "MIPS_LOCAL"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_NOSTRIP,     "MIPS_NOSTRIP"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_GPREL,       "MIPS_GPREL"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_MERGE,       "MIPS_MERGE"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_ADDR,        "MIPS_ADDR"},
+    { ELF_SECTION_FLAGS::SHF_MIPS_STRING,      "MIPS_STRING"}
   };
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "UNDEFINED" : it->second;
 }
 
 
-const char* to_string(SYMBOL_TYPES e) {
-  const std::map<SYMBOL_TYPES, const char*> enumStrings {
-    { SYMBOL_TYPES::STT_NOTYPE,    "NOTYPE"},
-    { SYMBOL_TYPES::STT_OBJECT,    "OBJECT"},
-    { SYMBOL_TYPES::STT_FUNC,      "FUNC"},
-    { SYMBOL_TYPES::STT_SECTION,   "SECTION"},
-    { SYMBOL_TYPES::STT_FILE,      "FILE"},
-    { SYMBOL_TYPES::STT_COMMON,    "COMMON"},
-    { SYMBOL_TYPES::STT_TLS,       "TLS"},
-    { SYMBOL_TYPES::STT_GNU_IFUNC, "GNU_IFUNC"},
-    { SYMBOL_TYPES::STT_LOOS,      "LOOS"},
-    { SYMBOL_TYPES::STT_HIOS,      "HIOS"},
-    { SYMBOL_TYPES::STT_LOPROC,    "LOPROC"},
-    { SYMBOL_TYPES::STT_HIPROC,    "HIPROC"}
+const char* to_string(ELF_SYMBOL_TYPES e) {
+  CONST_MAP(ELF_SYMBOL_TYPES, const char*, 12) enumStrings {
+    { ELF_SYMBOL_TYPES::STT_NOTYPE,    "NOTYPE"},
+    { ELF_SYMBOL_TYPES::STT_OBJECT,    "OBJECT"},
+    { ELF_SYMBOL_TYPES::STT_FUNC,      "FUNC"},
+    { ELF_SYMBOL_TYPES::STT_SECTION,   "SECTION"},
+    { ELF_SYMBOL_TYPES::STT_FILE,      "FILE"},
+    { ELF_SYMBOL_TYPES::STT_COMMON,    "COMMON"},
+    { ELF_SYMBOL_TYPES::STT_TLS,       "TLS"},
+    { ELF_SYMBOL_TYPES::STT_GNU_IFUNC, "GNU_IFUNC"},
+    { ELF_SYMBOL_TYPES::STT_LOOS,      "LOOS"},
+    { ELF_SYMBOL_TYPES::STT_HIOS,      "HIOS"},
+    { ELF_SYMBOL_TYPES::STT_LOPROC,    "LOPROC"},
+    { ELF_SYMBOL_TYPES::STT_HIPROC,    "HIPROC"}
   };
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "UNDEFINED" : it->second;
@@ -472,7 +474,7 @@ const char* to_string(SYMBOL_TYPES e) {
 
 
 const char* to_string(RELOC_x86_64 e) {
-  const std::map<RELOC_x86_64, const char*> enumStrings {
+  CONST_MAP(RELOC_x86_64, const char*, 43) enumStrings {
     { RELOC_x86_64::R_X86_64_NONE,            "NONE"},
     { RELOC_x86_64::R_X86_64_64,              "R64"},
     { RELOC_x86_64::R_X86_64_PC32,            "PC32"},
@@ -510,14 +512,19 @@ const char* to_string(RELOC_x86_64 e) {
     { RELOC_x86_64::R_X86_64_GOTPC32_TLSDESC, "GOTPC32_TLSDESC"},
     { RELOC_x86_64::R_X86_64_TLSDESC_CALL,    "TLSDESC_CALL"},
     { RELOC_x86_64::R_X86_64_TLSDESC,         "TLSDESC"},
-    { RELOC_x86_64::R_X86_64_IRELATIVE,       "IRELATIVE"}
+    { RELOC_x86_64::R_X86_64_IRELATIVE,       "IRELATIVE"},
+    { RELOC_x86_64::R_X86_64_RELATIVE64,      "RELATIVE64"},
+    { RELOC_x86_64::R_X86_64_PC32_BND,        "PC32_BND"},
+    { RELOC_x86_64::R_X86_64_PLT32_BND,       "PLT32_BND"},
+    { RELOC_x86_64::R_X86_64_GOTPCRELX,       "GOTPCRELX"},
+    { RELOC_x86_64::R_X86_64_REX_GOTPCRELX,   "REX_GOTPCRELX"},
   };
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "UNDEFINED" : it->second;
 }
 
 const char* to_string(RELOC_ARM e) {
-  const std::map<RELOC_ARM, const char*> enumStrings {
+  CONST_MAP(RELOC_ARM, const char*, 138) enumStrings {
     { RELOC_ARM::R_ARM_NONE,               "NONE"},
     { RELOC_ARM::R_ARM_PC24,               "PC24"},
     { RELOC_ARM::R_ARM_ABS32,              "ABS32"},
@@ -662,7 +669,7 @@ const char* to_string(RELOC_ARM e) {
 }
 
 const char* to_string(RELOC_AARCH64 e) {
-  const std::map<RELOC_AARCH64, const char*> enumStrings {
+  CONST_MAP(RELOC_AARCH64, const char*, 123) enumStrings {
     { RELOC_AARCH64::R_AARCH64_NONE,                         "NONE"},
     { RELOC_AARCH64::R_AARCH64_ABS64,                        "ABS64"},
     { RELOC_AARCH64::R_AARCH64_ABS32,                        "ABS32"},
@@ -794,7 +801,7 @@ const char* to_string(RELOC_AARCH64 e) {
 
 
 const char* to_string(RELOC_i386 e) {
-  const std::map<RELOC_i386, const char*> enumStrings {
+  CONST_MAP(RELOC_i386, const char*, 41) enumStrings {
     { RELOC_i386::R_386_NONE,          "NONE"},
     { RELOC_i386::R_386_32,            "R32"},
     { RELOC_i386::R_386_PC32,          "PC32"},
@@ -841,8 +848,163 @@ const char* to_string(RELOC_i386 e) {
   return it == enumStrings.end() ? "UNDEFINED" : it->second;
 }
 
+const char* to_string(RELOC_POWERPC32 e) {
+  CONST_MAP(RELOC_POWERPC32, const char*, 57) enumStrings {
+  { RELOC_POWERPC32::R_PPC_NONE,              "NONE" },
+  { RELOC_POWERPC32::R_PPC_ADDR32,            "ADDR32" },
+  { RELOC_POWERPC32::R_PPC_ADDR24,            "ADDR24" },
+  { RELOC_POWERPC32::R_PPC_ADDR16,            "ADDR16" },
+  { RELOC_POWERPC32::R_PPC_ADDR16_LO,         "ADDR16" },
+  { RELOC_POWERPC32::R_PPC_ADDR16_HI,         "ADDR16_HI" },
+  { RELOC_POWERPC32::R_PPC_ADDR16_HA,         "ADDR16_HA" },
+  { RELOC_POWERPC32::R_PPC_ADDR14,            "ADDR14" },
+  { RELOC_POWERPC32::R_PPC_ADDR14_BRTAKEN,    "ADDR14_BRTAKEN" },
+  { RELOC_POWERPC32::R_PPC_ADDR14_BRNTAKEN,   "ADDR14_BRNTAKEN" },
+  { RELOC_POWERPC32::R_PPC_REL24,             "REL24" },
+  { RELOC_POWERPC32::R_PPC_REL14,             "REL14" },
+  { RELOC_POWERPC32::R_PPC_REL14_BRTAKEN,     "REL14_BRTAKEN" },
+  { RELOC_POWERPC32::R_PPC_REL14_BRNTAKEN,    "REL14_BRNTAKEN" },
+  { RELOC_POWERPC32::R_PPC_GOT16,             "GOT16" },
+  { RELOC_POWERPC32::R_PPC_GOT16_LO,          "GOT16_LO" },
+  { RELOC_POWERPC32::R_PPC_GOT16_HI,          "GOT16_HI" },
+  { RELOC_POWERPC32::R_PPC_GOT16_HA,          "GOT16_HA" },
+  { RELOC_POWERPC32::R_PPC_PLTREL24,          "PLTREL24" },
+  { RELOC_POWERPC32::R_PPC_JMP_SLOT,          "JMP_SLOT" },
+  { RELOC_POWERPC32::R_PPC_RELATIVE,          "RELATIVE" },
+  { RELOC_POWERPC32::R_PPC_LOCAL24PC,         "LOCAL24PC" },
+  { RELOC_POWERPC32::R_PPC_REL32,             "REL32" },
+  { RELOC_POWERPC32::R_PPC_TLS,               "TLS" },
+  { RELOC_POWERPC32::R_PPC_DTPMOD32,          "DTPMOD32" },
+  { RELOC_POWERPC32::R_PPC_TPREL16,           "TPREL16" },
+  { RELOC_POWERPC32::R_PPC_TPREL16_LO,        "TPREL16_LO" },
+  { RELOC_POWERPC32::R_PPC_TPREL16_HI,        "TPREL16_HI" },
+  { RELOC_POWERPC32::R_PPC_TPREL16_HA,        "TPREL16_HA" },
+  { RELOC_POWERPC32::R_PPC_TPREL32,           "TPREL32" },
+  { RELOC_POWERPC32::R_PPC_DTPREL16,          "DTPREL16" },
+  { RELOC_POWERPC32::R_PPC_DTPREL16_LO,       "DTPREL16_LO" },
+  { RELOC_POWERPC32::R_PPC_DTPREL16_HI,       "DTPREL16_HI" },
+  { RELOC_POWERPC32::R_PPC_DTPREL16_HA,       "DTPREL16_HA" },
+  { RELOC_POWERPC32::R_PPC_DTPREL32,          "DTPREL32" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSGD16,       "GOT_TLSGD16" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSGD16_LO,    "GOT_TLSGD16_LO" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSGD16_HI,    "GOT_TLSGD16_HI" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSGD16_HA,    "GOT_TLSGD16_HA" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSLD16,       "GOT_TLSLD16" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSLD16_LO,    "GOT_TLSLD16_LO" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSLD16_HI,    "GOT_TLSLD16_HI" },
+  { RELOC_POWERPC32::R_PPC_GOT_TLSLD16_HA,    "GOT_TLSLD16_HA" },
+  { RELOC_POWERPC32::R_PPC_GOT_TPREL16,       "GOT_TPREL16" },
+  { RELOC_POWERPC32::R_PPC_GOT_TPREL16_LO,    "GOT_TPREL16_LO" },
+  { RELOC_POWERPC32::R_PPC_GOT_TPREL16_HI,    "GOT_TPREL16_HI" },
+  { RELOC_POWERPC32::R_PPC_GOT_TPREL16_HA,    "GOT_TPREL16_HA" },
+  { RELOC_POWERPC32::R_PPC_GOT_DTPREL16,      "GOT_DTPREL16" },
+  { RELOC_POWERPC32::R_PPC_GOT_DTPREL16_LO,   "GOT_DTPREL16_LO" },
+  { RELOC_POWERPC32::R_PPC_GOT_DTPREL16_HI,   "GOT_DTPREL16_HI" },
+  { RELOC_POWERPC32::R_PPC_GOT_DTPREL16_HA,   "GOT_DTPREL16_HA" },
+  { RELOC_POWERPC32::R_PPC_TLSGD,             "TLSGD" },
+  { RELOC_POWERPC32::R_PPC_TLSLD,             "TLSLD" },
+  { RELOC_POWERPC32::R_PPC_REL16,             "REL16" },
+  { RELOC_POWERPC32::R_PPC_REL16_LO,          "REL16_LO" },
+  { RELOC_POWERPC32::R_PPC_REL16_HI,          "REL16_HI" },
+  { RELOC_POWERPC32::R_PPC_REL16_HA,          "REL16_HA" },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
+const char* to_string(RELOC_POWERPC64 e) {
+  CONST_MAP(RELOC_POWERPC64, const char*, 84) enumStrings {
+  { RELOC_POWERPC64::R_PPC64_NONE,                "NONE" },
+  { RELOC_POWERPC64::R_PPC64_ADDR32,              "ADDR32" },
+  { RELOC_POWERPC64::R_PPC64_ADDR24,              "ADDR24" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16,              "ADDR16" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_LO,           "ADDR16_LO" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_HI,           "ADDR16_HI" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_HA,           "ADDR16_HA" },
+  { RELOC_POWERPC64::R_PPC64_ADDR14,              "ADDR14" },
+  { RELOC_POWERPC64::R_PPC64_ADDR14_BRTAKEN,      "ADDR14_BRTAKEN" }, 
+  { RELOC_POWERPC64::R_PPC64_ADDR14_BRNTAKEN,     "ADDR14_BRNTAKEN" },
+  { RELOC_POWERPC64::R_PPC64_REL24,               "REL24" },
+  { RELOC_POWERPC64::R_PPC64_REL14,               "REL14" },
+  { RELOC_POWERPC64::R_PPC64_REL14_BRTAKEN,       "REL14_BRTAKEN" },
+  { RELOC_POWERPC64::R_PPC64_REL14_BRNTAKEN,      "REL14_BRNTAKEN" },
+  { RELOC_POWERPC64::R_PPC64_GOT16,               "GOT16" },
+  { RELOC_POWERPC64::R_PPC64_GOT16_LO,            "GOT16_LO" },
+  { RELOC_POWERPC64::R_PPC64_GOT16_HI,            "GOT16_HI" },
+  { RELOC_POWERPC64::R_PPC64_GOT16_HA,            "GOT16_HA" },
+  { RELOC_POWERPC64::R_PPC64_JMP_SLOT,            "JMP_SLOT" },
+  { RELOC_POWERPC64::R_PPC64_RELATIVE,            "RELATIVE"},
+  { RELOC_POWERPC64::R_PPC64_REL32,               "REL32" },
+  { RELOC_POWERPC64::R_PPC64_ADDR64,              "ADDR64" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_HIGHER,       "ADDR16_HIGHER" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_HIGHERA,      "ADDR16_HIGHERA" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_HIGHEST,      "ADDR16_HIGHEST" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_HIGHESTA,     "ADDR16_HIGHESTA" },
+  { RELOC_POWERPC64::R_PPC64_REL64,               "REL64" },
+  { RELOC_POWERPC64::R_PPC64_TOC16,               "TOC16" },
+  { RELOC_POWERPC64::R_PPC64_TOC16_LO,            "TOC16_LO" },
+  { RELOC_POWERPC64::R_PPC64_TOC16_HI,            "TOC16_HI" },
+  { RELOC_POWERPC64::R_PPC64_TOC16_HA,            "TOC16_HA" },
+  { RELOC_POWERPC64::R_PPC64_TOC,                 "TOC" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_DS,           "ADDR16_DS" },
+  { RELOC_POWERPC64::R_PPC64_ADDR16_LO_DS,        "ADDR16_LO_DS" },
+  { RELOC_POWERPC64::R_PPC64_GOT16_DS,            "GOT16_DS" },
+  { RELOC_POWERPC64::R_PPC64_GOT16_LO_DS,         "GOT16_LO_DS" },
+  { RELOC_POWERPC64::R_PPC64_TOC16_DS,            "TOC16_DS" },
+  { RELOC_POWERPC64::R_PPC64_TOC16_LO_DS,         "TOC16_LO_DS" },
+  { RELOC_POWERPC64::R_PPC64_TLS,                 "TLS" },
+  { RELOC_POWERPC64::R_PPC64_DTPMOD64,            "DTPMOD64" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16,             "TPREL16" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_LO,          "TPREL16_LO" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_HI,          "TPREL16_HI" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_HA,          "TPREL16_HA" },
+  { RELOC_POWERPC64::R_PPC64_TPREL64,             "TPREL64" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16,            "DTPREL16" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_LO,         "DTPREL16_LO" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_HI,         "DTPREL16_HI" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_HA,         "DTPREL16_HA" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL64,            "DTPREL64" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSGD16,         "GOT_TLSGD16" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSGD16_LO,      "GOT_TLSGD16_LO" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSGD16_HI,      "GOT_TLSGD16_HI" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSGD16_HA,      "GOT_TLSGD16_HA" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSLD16,         "GOT_TLSLD16" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSLD16_LO,      "GOT_TLSLD16_LO" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSLD16_HI,      "GOT_TLSLD16_HI" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TLSLD16_HA,      "GOT_TLSLD16_HA" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TPREL16_DS,      "GOT_TPREL16_DS" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TPREL16_LO_DS,   "GOT_TPREL16_LO_DS" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TPREL16_HI,      "GOT_TPREL16_HI" },
+  { RELOC_POWERPC64::R_PPC64_GOT_TPREL16_HA,      "GOT_TPREL16_HA" },
+  { RELOC_POWERPC64::R_PPC64_GOT_DTPREL16_DS,     "GOT_DTPREL16_DS" },
+  { RELOC_POWERPC64::R_PPC64_GOT_DTPREL16_LO_DS,  "GOT_DTPREL16_LO_DS" },
+  { RELOC_POWERPC64::R_PPC64_GOT_DTPREL16_HI,     "GOT_DTPREL16_HI" },
+  { RELOC_POWERPC64::R_PPC64_GOT_DTPREL16_HA,     "GOT_DTPREL16_HA" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_DS,          "TPREL16_DS" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_LO_DS,       "TPREL16_LO_DS" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_HIGHER,      "TPREL16_HIGHER" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_HIGHERA,     "TPREL16_HIGHERA" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_HIGHEST,     "TPREL16_HIGHEST" },
+  { RELOC_POWERPC64::R_PPC64_TPREL16_HIGHESTA,    "TPREL16_HIGHESTA" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_DS,         "DTPREL16_DS" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_LO_DS,      "DTPREL16_LO_DS" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_HIGHER,     "DTPREL16_HIGHER" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_HIGHERA,    "DTPREL16_HIGHERA" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_HIGHEST,    "DTPREL16_HIGHEST" },
+  { RELOC_POWERPC64::R_PPC64_DTPREL16_HIGHESTA,   "DTPREL16_HIGHESTA" },
+  { RELOC_POWERPC64::R_PPC64_TLSGD,               "TLSGD" },
+  { RELOC_POWERPC64::R_PPC64_TLSLD,               "TLSLD" },
+  { RELOC_POWERPC64::R_PPC64_REL16,               "REL16" },
+  { RELOC_POWERPC64::R_PPC64_REL16_LO,            "REL16_LO" },
+  { RELOC_POWERPC64::R_PPC64_REL16_HI,            "REL16_HI" },
+  { RELOC_POWERPC64::R_PPC64_REL16_HA,            "REL16_HA" },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
 const char* to_string(ELF_CLASS e) {
-  const std::map<ELF_CLASS, const char*> enumStrings {
+  CONST_MAP(ELF_CLASS, const char*, 3) enumStrings {
     { ELF_CLASS::ELFCLASSNONE, "NONE"},
     { ELF_CLASS::ELFCLASS32,   "CLASS32"},
     { ELF_CLASS::ELFCLASS64,   "CLASS64"},
@@ -853,7 +1015,7 @@ const char* to_string(ELF_CLASS e) {
 }
 
 const char* to_string(ELF_DATA e) {
-  const std::map<ELF_DATA, const char*> enumStrings {
+  CONST_MAP(ELF_DATA, const char*, 3) enumStrings {
     { ELF_DATA::ELFDATANONE, "NONE"},
     { ELF_DATA::ELFDATA2LSB, "LSB"},
     { ELF_DATA::ELFDATA2MSB, "MSB"},
@@ -864,7 +1026,7 @@ const char* to_string(ELF_DATA e) {
 }
 
 const char* to_string(OS_ABI e) {
-  const std::map<OS_ABI, const char*> enumStrings {
+  CONST_MAP(OS_ABI, const char*, 23) enumStrings {
     { OS_ABI::ELFOSABI_SYSTEMV,      "SYSTEMV"},
     { OS_ABI::ELFOSABI_HPUX,         "HPUX"},
     { OS_ABI::ELFOSABI_NETBSD,       "NETBSD"},
@@ -896,7 +1058,7 @@ const char* to_string(OS_ABI e) {
 
 
 const char* to_string(DYNSYM_COUNT_METHODS e) {
-  const std::map<DYNSYM_COUNT_METHODS, const char*> enumStrings {
+  CONST_MAP(DYNSYM_COUNT_METHODS, const char*, 4) enumStrings {
     { DYNSYM_COUNT_METHODS::COUNT_AUTO,        "AUTO"},
     { DYNSYM_COUNT_METHODS::COUNT_SECTION,     "SECTION"},
     { DYNSYM_COUNT_METHODS::COUNT_HASH,        "HASH"},
@@ -909,7 +1071,8 @@ const char* to_string(DYNSYM_COUNT_METHODS e) {
 
 
 const char* to_string(NOTE_TYPES e) {
-  const std::map<NOTE_TYPES, const char*> enumStrings {
+  CONST_MAP(NOTE_TYPES, const char*, 5) enumStrings {
+    { NOTE_TYPES::NT_UNKNOWN,          "UNKNOWN"},
     { NOTE_TYPES::NT_GNU_ABI_TAG,      "ABI_TAG"},
     { NOTE_TYPES::NT_GNU_HWCAP,        "HWCAP"},
     { NOTE_TYPES::NT_GNU_BUILD_ID,     "BUILD_ID"},
@@ -921,7 +1084,8 @@ const char* to_string(NOTE_TYPES e) {
 }
 
 const char* to_string(NOTE_ABIS e) {
-  const std::map<NOTE_ABIS, const char*> enumStrings {
+  CONST_MAP(NOTE_ABIS, const char*, 7) enumStrings {
+    { NOTE_ABIS::ELF_NOTE_UNKNOWN,     "UNKNOWN"},
     { NOTE_ABIS::ELF_NOTE_OS_LINUX,    "LINUX"},
     { NOTE_ABIS::ELF_NOTE_OS_GNU,      "GNU"},
     { NOTE_ABIS::ELF_NOTE_OS_SOLARIS2, "SOLARIS2"},
@@ -935,7 +1099,7 @@ const char* to_string(NOTE_ABIS e) {
 }
 
 const char* to_string(RELOCATION_PURPOSES e) {
-  const std::map<RELOCATION_PURPOSES, const char*> enumStrings {
+  CONST_MAP(RELOCATION_PURPOSES, const char*, 4) enumStrings {
     { RELOCATION_PURPOSES::RELOC_PURPOSE_NONE,    "NONE"},
     { RELOCATION_PURPOSES::RELOC_PURPOSE_PLTGOT,  "PLTGOT"},
     { RELOCATION_PURPOSES::RELOC_PURPOSE_DYNAMIC, "DYNAMIC"},
@@ -945,6 +1109,222 @@ const char* to_string(RELOCATION_PURPOSES e) {
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "UNDEFINED" : it->second;
 }
+
+
+const char* to_string(PPC64_EFLAGS e) {
+  CONST_MAP(PPC64_EFLAGS, const char*, 1) enumStrings {
+    { PPC64_EFLAGS::EF_PPC64_ABI, "ABI"},
+  };
+
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
+
+const char* to_string(ARM_EFLAGS e) {
+  CONST_MAP(ARM_EFLAGS, const char*, 8) enumStrings {
+    { ARM_EFLAGS::EF_ARM_SOFT_FLOAT,   "SOFT_FLOAT" },
+    { ARM_EFLAGS::EF_ARM_VFP_FLOAT,    "VFP_FLOAT"  },
+    { ARM_EFLAGS::EF_ARM_EABI_UNKNOWN, "UNKNOWN"    },
+    { ARM_EFLAGS::EF_ARM_EABI_VER1,    "EABI_VER1"  },
+    { ARM_EFLAGS::EF_ARM_EABI_VER2,    "EABI_VER2"  },
+    { ARM_EFLAGS::EF_ARM_EABI_VER3,    "EABI_VER3"  },
+    { ARM_EFLAGS::EF_ARM_EABI_VER4,    "EABI_VER4"  },
+    { ARM_EFLAGS::EF_ARM_EABI_VER5,    "EABI_VER5" },
+  };
+
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
+const char* to_string(MIPS_EFLAGS e) {
+  CONST_MAP(MIPS_EFLAGS, const char*, 43) enumStrings {
+    { MIPS_EFLAGS::EF_MIPS_NOREORDER,     "NOREORDER"     },
+    { MIPS_EFLAGS::EF_MIPS_PIC,           "PIC"           },
+    { MIPS_EFLAGS::EF_MIPS_CPIC,          "CPIC"          },
+    { MIPS_EFLAGS::EF_MIPS_ABI2,          "ABI2"          },
+    { MIPS_EFLAGS::EF_MIPS_32BITMODE,     "_32BITMODE"    },
+    { MIPS_EFLAGS::EF_MIPS_FP64,          "FP64"          },
+    { MIPS_EFLAGS::EF_MIPS_NAN2008,       "NAN2008"       },
+
+    { MIPS_EFLAGS::EF_MIPS_ABI_O32,       "ABI_O32"       },
+    { MIPS_EFLAGS::EF_MIPS_ABI_O64,       "ABI_O64"       },
+    { MIPS_EFLAGS::EF_MIPS_ABI_EABI32,    "ABI_EABI32"    },
+    { MIPS_EFLAGS::EF_MIPS_ABI_EABI64,    "ABI_EABI64"    },
+
+    { MIPS_EFLAGS::EF_MIPS_MACH_3900,     "MACH_3900"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_4010,     "MACH_4010"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_4100,     "MACH_4100"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_4650,     "MACH_4650"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_4120,     "MACH_4120"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_4111,     "MACH_4111"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_SB1,      "MACH_SB1"      },
+    { MIPS_EFLAGS::EF_MIPS_MACH_OCTEON,   "MACH_OCTEON"   },
+    { MIPS_EFLAGS::EF_MIPS_MACH_XLR,      "MACH_XLR"      },
+    { MIPS_EFLAGS::EF_MIPS_MACH_OCTEON2,  "MACH_OCTEON2"  },
+    { MIPS_EFLAGS::EF_MIPS_MACH_OCTEON3,  "MACH_OCTEON3"  },
+    { MIPS_EFLAGS::EF_MIPS_MACH_5400,     "MACH_5400"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_5900,     "MACH_5900"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_5500,     "MACH_5500"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_9000,     "MACH_9000"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_LS2E,     "MACH_LS2E"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_LS2F,     "MACH_LS2F"     },
+    { MIPS_EFLAGS::EF_MIPS_MACH_LS3A,     "MACH_LS3A"     },
+
+    { MIPS_EFLAGS::EF_MIPS_MICROMIPS,     "MICROMIPS"     },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_ASE_M16,  "ARCH_ASE_M16"  },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_ASE_MDMX, "ARCH_ASE_MDMX" },
+
+    { MIPS_EFLAGS::EF_MIPS_ARCH_1,        "ARCH_1"        },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_2,        "ARCH_2"        },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_3,        "ARCH_3"        },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_4,        "ARCH_4"        },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_5,        "ARCH_5"        },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_32,       "ARCH_32"       },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_64,       "ARCH_64"       },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_32R2,     "ARCH_32R2"     },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_64R2,     "ARCH_64R2"     },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_32R6,     "ARCH_32R6"     },
+    { MIPS_EFLAGS::EF_MIPS_ARCH_64R6,     "ARCH_64R6"     },
+  };
+
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
+
+const char* to_string(HEXAGON_EFLAGS e) {
+  CONST_MAP(HEXAGON_EFLAGS, const char*, 9) enumStrings {
+    { HEXAGON_EFLAGS::EF_HEXAGON_MACH_V2,   "MACH_V2"  },
+    { HEXAGON_EFLAGS::EF_HEXAGON_MACH_V3,   "MACH_V3"  },
+    { HEXAGON_EFLAGS::EF_HEXAGON_MACH_V4,   "MACH_V4"  },
+    { HEXAGON_EFLAGS::EF_HEXAGON_MACH_V5,   "MACH_V5"  },
+
+    { HEXAGON_EFLAGS::EF_HEXAGON_ISA_MACH,  "ISA_MACH" },
+
+    { HEXAGON_EFLAGS::EF_HEXAGON_ISA_V2,    "ISA_V2"   },
+    { HEXAGON_EFLAGS::EF_HEXAGON_ISA_V3,    "ISA_V3"   },
+    { HEXAGON_EFLAGS::EF_HEXAGON_ISA_V4,    "ISA_V4"   },
+    { HEXAGON_EFLAGS::EF_HEXAGON_ISA_V5,    "ISA_V5"   },
+  };
+
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
+const char* to_string(IDENTITY e) {
+  CONST_MAP(IDENTITY, const char*, 11) enumStrings {
+    { IDENTITY::EI_MAG0,       "MAG0"       },
+    { IDENTITY::EI_MAG1,       "MAG1"       },
+    { IDENTITY::EI_MAG2,       "MAG2"       },
+    { IDENTITY::EI_MAG3,       "MAG3"       },
+    { IDENTITY::EI_CLASS,      "CLASS"      },
+    { IDENTITY::EI_DATA,       "DATA"       },
+    { IDENTITY::EI_VERSION,    "VERSION"    },
+    { IDENTITY::EI_OSABI,      "OSABI"      },
+    { IDENTITY::EI_ABIVERSION, "ABIVERSION" },
+    { IDENTITY::EI_PAD,        "PAD"        },
+    { IDENTITY::EI_NIDENT,     "NIDENT"     },
+  };
+
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
+const char* to_string(SYMBOL_SECTION_INDEX e) {
+  CONST_MAP(SYMBOL_SECTION_INDEX, const char*, 10) enumStrings {
+    { SYMBOL_SECTION_INDEX::SHN_UNDEF,     "UNDEF"     },
+    { SYMBOL_SECTION_INDEX::SHN_LORESERVE, "LORESERVE" },
+    { SYMBOL_SECTION_INDEX::SHN_LOPROC,    "LOPROC"    },
+    { SYMBOL_SECTION_INDEX::SHN_HIPROC,    "HIPROC"    },
+    { SYMBOL_SECTION_INDEX::SHN_LOOS,      "LOOS"      },
+    { SYMBOL_SECTION_INDEX::SHN_HIOS,      "HIOS"      },
+    { SYMBOL_SECTION_INDEX::SHN_ABS,       "ABS"       },
+    { SYMBOL_SECTION_INDEX::SHN_COMMON,    "COMMON"    },
+    { SYMBOL_SECTION_INDEX::SHN_XINDEX,    "XINDEX"    },
+    { SYMBOL_SECTION_INDEX::SHN_HIRESERVE, "HIRESERVE" },
+  };
+
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNDEFINED" : it->second;
+}
+
+
+const char* to_string(DYNAMIC_FLAGS e) {
+  CONST_MAP(DYNAMIC_FLAGS, const char*, 5) enum_strings {
+    { DYNAMIC_FLAGS::DF_ORIGIN,     "ORIGIN"         },
+    { DYNAMIC_FLAGS::DF_SYMBOLIC,   "SYMBOLIC"       },
+    { DYNAMIC_FLAGS::DF_TEXTREL,    "TEXTREL"        },
+    { DYNAMIC_FLAGS::DF_BIND_NOW,   "BIND_NOW"       },
+    { DYNAMIC_FLAGS::DF_STATIC_TLS, "STATIC_TLS"     },
+  };
+
+  auto   it  = enum_strings.find(e);
+  return it == enum_strings.end() ? "UNDEFINED" : it->second;
+}
+
+const char* to_string(DYNAMIC_FLAGS_1 e) {
+  CONST_MAP(DYNAMIC_FLAGS_1, const char*, 26) enum_strings_flags1 {
+    { DYNAMIC_FLAGS_1::DF_1_NOW,        "NOW"        },
+    { DYNAMIC_FLAGS_1::DF_1_GLOBAL,     "GLOBAL"     },
+    { DYNAMIC_FLAGS_1::DF_1_GROUP,      "GROUP"      },
+    { DYNAMIC_FLAGS_1::DF_1_NODELETE,   "NODELETE"   },
+    { DYNAMIC_FLAGS_1::DF_1_LOADFLTR,   "LOADFLTR"   },
+    { DYNAMIC_FLAGS_1::DF_1_INITFIRST,  "INITFIRST"  },
+    { DYNAMIC_FLAGS_1::DF_1_NOOPEN,     "NOOPEN"     },
+    { DYNAMIC_FLAGS_1::DF_1_ORIGIN,     "ORIGIN"     },
+    { DYNAMIC_FLAGS_1::DF_1_DIRECT,     "DIRECT"     },
+    { DYNAMIC_FLAGS_1::DF_1_TRANS,      "TRANS"      },
+    { DYNAMIC_FLAGS_1::DF_1_INTERPOSE,  "INTERPOSE"  },
+    { DYNAMIC_FLAGS_1::DF_1_NODEFLIB,   "NODEFLIB"   },
+    { DYNAMIC_FLAGS_1::DF_1_NODUMP,     "NODUMP"     },
+    { DYNAMIC_FLAGS_1::DF_1_CONFALT,    "CONFALT"    },
+    { DYNAMIC_FLAGS_1::DF_1_ENDFILTEE,  "ENDFILTEE"  },
+    { DYNAMIC_FLAGS_1::DF_1_DISPRELDNE, "DISPRELDNE" },
+    { DYNAMIC_FLAGS_1::DF_1_DISPRELPND, "DISPRELPND" },
+    { DYNAMIC_FLAGS_1::DF_1_NODIRECT,   "NODIRECT"   },
+    { DYNAMIC_FLAGS_1::DF_1_IGNMULDEF,  "IGNMULDEF"  },
+    { DYNAMIC_FLAGS_1::DF_1_NOKSYMS,    "NOKSYMS"    },
+    { DYNAMIC_FLAGS_1::DF_1_NOHDR,      "NOHDR"      },
+    { DYNAMIC_FLAGS_1::DF_1_EDITED,     "EDITED"     },
+    { DYNAMIC_FLAGS_1::DF_1_NORELOC,    "NORELOC"    },
+    { DYNAMIC_FLAGS_1::DF_1_SYMINTPOSE, "SYMINTPOSE" },
+    { DYNAMIC_FLAGS_1::DF_1_GLOBAUDIT,  "GLOBAUDIT"  },
+    { DYNAMIC_FLAGS_1::DF_1_SINGLETON,  "SINGLETON"  },
+  };
+
+  auto   it  = enum_strings_flags1.find(e);
+  return it == enum_strings_flags1.end() ? "UNDEFINED" : it->second;
+}
+
+const char* to_string(ELF_SEGMENT_FLAGS e) {
+  CONST_MAP(ELF_SEGMENT_FLAGS, const char*, 4) enum_strings {
+    { ELF_SEGMENT_FLAGS::PF_NONE, "NONE" },
+    { ELF_SEGMENT_FLAGS::PF_X,    "X" },
+    { ELF_SEGMENT_FLAGS::PF_W,    "W" },
+    { ELF_SEGMENT_FLAGS::PF_R,    "R" },
+  };
+
+  auto   it  = enum_strings.find(e);
+  return it == enum_strings.end() ? "UNDEFINED" : it->second;
+}
+
+
+const char* to_string(ELF_SYMBOL_VISIBILITY e) {
+  CONST_MAP(ELF_SYMBOL_VISIBILITY, const char*, 4) enum_strings {
+    { ELF_SYMBOL_VISIBILITY::STV_DEFAULT,   "DEFAULT"   },
+    { ELF_SYMBOL_VISIBILITY::STV_HIDDEN,    "HIDDEN"    },
+    { ELF_SYMBOL_VISIBILITY::STV_INTERNAL,  "INTERNAL"  },
+    { ELF_SYMBOL_VISIBILITY::STV_PROTECTED, "PROTECTED" },
+  };
+
+  auto   it  = enum_strings.find(e);
+  return it == enum_strings.end() ? "UNDEFINED" : it->second;
+}
+
+
+
+
 
 } // namespace ELF
 } // namespace LIEF

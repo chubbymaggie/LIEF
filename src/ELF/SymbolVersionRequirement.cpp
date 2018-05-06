@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <iterator>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 
 #include "LIEF/ELF/SymbolVersionRequirement.hpp"
 
@@ -51,7 +51,7 @@ SymbolVersionRequirement::SymbolVersionRequirement(const Elf32_Verneed *header) 
 
 
 SymbolVersionRequirement::SymbolVersionRequirement(const SymbolVersionRequirement& other) :
-  Visitable{other},
+  Object{other},
   version_{other.version_},
   name_{other.name_}
 {
@@ -84,13 +84,13 @@ uint32_t SymbolVersionRequirement::cnt(void) const {
 }
 
 
-it_symbols_version_aux_requirement SymbolVersionRequirement::get_auxiliary_symbols(void) {
-  return {this->symbol_version_aux_requirement_};
+it_symbols_version_aux_requirement SymbolVersionRequirement::auxiliary_symbols(void) {
+  return this->symbol_version_aux_requirement_;
 }
 
 
-it_const_symbols_version_aux_requirement SymbolVersionRequirement::get_auxiliary_symbols(void) const {
-  return {this->symbol_version_aux_requirement_};
+it_const_symbols_version_aux_requirement SymbolVersionRequirement::auxiliary_symbols(void) const {
+  return this->symbol_version_aux_requirement_;
 }
 
 
@@ -110,13 +110,7 @@ void SymbolVersionRequirement::name(const std::string& name) {
 
 
 void SymbolVersionRequirement::accept(Visitor& visitor) const {
-  visitor.visit(this->version());
-  visitor.visit(this->cnt());
-  visitor.visit(this->name());
-
-  for (const SymbolVersionAuxRequirement& svar : this->get_auxiliary_symbols()) {
-    visitor(svar);
-  }
+  visitor.visit(*this);
 }
 
 bool SymbolVersionRequirement::operator==(const SymbolVersionRequirement& rhs) const {

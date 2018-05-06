@@ -24,7 +24,7 @@
 namespace LIEF {
 namespace ELF {
 namespace DataHandler {
-class DLL_PUBLIC Node {
+class LIEF_API Node {
   public:
     enum Type : uint8_t {
       SECTION = 0,
@@ -39,11 +39,20 @@ class DLL_PUBLIC Node {
 
     uint64_t size(void) const;
     uint64_t offset(void) const;
-    Type   type(void) const;
+    Type     type(void) const;
 
     void size(uint64_t size);
     void type(Type type);
     void offset(uint64_t offset);
+
+    bool operator==(const Node& rhs) const;
+    bool operator!=(const Node& rhs) const;
+
+    bool operator<(const Node& rhs) const;
+    bool operator<=(const Node& rhs) const;
+
+    bool operator>(const Node& rhs) const;
+    bool operator>=(const Node& rhs) const;
 
   private:
     uint64_t size_;

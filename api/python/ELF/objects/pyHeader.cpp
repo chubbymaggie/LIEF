@@ -18,7 +18,7 @@
 
 #include "pyELF.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 #include "LIEF/ELF/Header.hpp"
 
 template<class T>
@@ -32,9 +32,8 @@ void init_ELF_Header_class(py::module& m) {
   //
   // Header object
   //
-  py::class_<Header>(m, "Header")
+  py::class_<Header, LIEF::Object>(m, "Header")
     .def(py::init<>())
-    .def(py::init<const std::vector<uint8_t>&>())
 
     .def_property("identity_class",
         static_cast<getter_t<ELF_CLASS>>(&Header::identity_class),
@@ -102,6 +101,30 @@ void init_ELF_Header_class(py::module& m) {
         static_cast<getter_t<uint32_t>>(&Header::processor_flag),
         static_cast<setter_t<uint32_t>>(&Header::processor_flag))
 
+    .def_property_readonly("arm_flags_list",
+        &Header::arm_flags_list,
+        "Return list of " RST_CLASS_REF(lief.ELF.ARM_EFLAGS) " present in "
+        ":attr:`~lief.ELF.Header.processor_flag`",
+        py::return_value_policy::reference_internal)
+
+    .def_property_readonly("mips_flags_list",
+        &Header::mips_flags_list,
+        "Return list of " RST_CLASS_REF(lief.ELF.MIPS_EFLAGS) " present in "
+        ":attr:`~lief.ELF.Header.processor_flag`",
+        py::return_value_policy::reference_internal)
+
+    .def_property_readonly("ppc64_flags_list",
+        &Header::ppc64_flags_list,
+        "Return list of " RST_CLASS_REF(lief.ELF.PPC64_EFLAGS) " present in "
+        ":attr:`~lief.ELF.Header.processor_flag`",
+        py::return_value_policy::reference_internal)
+
+    .def_property_readonly("hexagon_flags_list",
+        &Header::hexagon_flags_list,
+        "Return list of " RST_CLASS_REF(lief.ELF.HEXAGON_EFLAGS) " present in "
+        ":attr:`~lief.ELF.Header.processor_flag`",
+        py::return_value_policy::reference_internal)
+
     .def_property("header_size",
         static_cast<getter_t<uint32_t>>(&Header::header_size),
         static_cast<setter_t<uint32_t>>(&Header::header_size),
@@ -136,8 +159,31 @@ void init_ELF_Header_class(py::module& m) {
     .def("__ne__", &Header::operator!=)
     .def("__hash__",
         [] (const Header& header) {
-          return LIEF::Hash::hash(header);
+          return Hash::hash(header);
         })
+
+    .def("__contains__",
+        static_cast<bool (Header::*)(ARM_EFLAGS) const>(&Header::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.ARM_EFLAGS) " is present in "
+        ":attr:`~lief.ELF.Header.processor_flag`")
+
+
+    .def("__contains__",
+        static_cast<bool (Header::*)(MIPS_EFLAGS) const>(&Header::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.MIPS_EFLAGS) " is present in "
+        ":attr:`~lief.ELF.Header.processor_flag`")
+
+
+    .def("__contains__",
+        static_cast<bool (Header::*)(PPC64_EFLAGS) const>(&Header::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.PPC64_EFLAGS) " is present in "
+        ":attr:`~lief.ELF.Header.processor_flag`")
+
+
+    .def("__contains__",
+        static_cast<bool (Header::*)(HEXAGON_EFLAGS) const>(&Header::has),
+        "Check if the given " RST_CLASS_REF(lief.ELF.HEXAGON_EFLAGS) " is present in "
+        ":attr:`~lief.ELF.Header.processor_flag`")
 
     .def("__str__",
         [] (const Header& header)

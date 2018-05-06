@@ -40,11 +40,31 @@
 #include "LIEF/ELF/GnuHash.hpp"
 
 namespace LIEF {
+
+namespace OAT {
+class Parser;
+}
 namespace ELF {
 
+
 //! @brief Class which parse an ELF file and transform into a ELF::Binary
-class DLL_PUBLIC Parser : public LIEF::Parser {
+class LIEF_API Parser : public LIEF::Parser {
+  friend class OAT::Parser;
   public:
+
+    static constexpr uint32_t NB_MAX_SYMBOLS         = 1000000;
+    static constexpr uint32_t DELTA_NB_SYMBOLS       = 3000;
+    static constexpr uint32_t NB_MAX_BUCKETS         = NB_MAX_SYMBOLS;
+    static constexpr uint32_t NB_MAX_CHAINS          = 1000000;
+    static constexpr uint32_t NB_MAX_SECTION         = 10000;
+    static constexpr uint32_t NB_MAX_SEGMENTS        = 10000;
+    static constexpr uint32_t NB_MAX_RELOCATIONS     = 3000000;
+    static constexpr uint32_t NB_MAX_DYNAMIC_ENTRIES = 1000;
+    static constexpr uint32_t NB_MAX_MASKWORD        = 512;
+    static constexpr uint32_t MAX_NOTE_DESCRIPTION   = 1_MB;
+    static constexpr uint32_t MAX_SECTION_SIZE       = 100_MB;
+    static constexpr uint32_t MAX_SEGMENT_SIZE       = MAX_SECTION_SIZE;
+
 
     //! @brief Parse an ELF file an return a LIEF::ELF::Binary object
     //!
@@ -70,8 +90,8 @@ class DLL_PUBLIC Parser : public LIEF::Parser {
 
   private:
     Parser(void);
-    Parser(const std::string& file, DYNSYM_COUNT_METHODS count_mtd = DYNSYM_COUNT_METHODS::COUNT_AUTO);
-    Parser(const std::vector<uint8_t>& data, const std::string& name, DYNSYM_COUNT_METHODS count_mtd = DYNSYM_COUNT_METHODS::COUNT_AUTO);
+    Parser(const std::string& file, DYNSYM_COUNT_METHODS count_mtd = DYNSYM_COUNT_METHODS::COUNT_AUTO, Binary* output = nullptr);
+    Parser(const std::vector<uint8_t>& data, const std::string& name, DYNSYM_COUNT_METHODS count_mtd = DYNSYM_COUNT_METHODS::COUNT_AUTO, Binary* output = nullptr);
     ~Parser(void);
 
     void init(const std::string& name = "");
@@ -84,7 +104,7 @@ class DLL_PUBLIC Parser : public LIEF::Parser {
     void parse_binary(void);
 
     template<typename ELF_T>
-    void parse_header(void);
+    bool parse_header(void);
 
     //! @brief Parse binary's Section
     //!
@@ -138,7 +158,7 @@ class DLL_PUBLIC Parser : public LIEF::Parser {
     //! @brief Parse static Symbol
     //!
     //! Parser find Symbols offset by using the file offset attribute of the
-    //! SECTION_TYPES::SHT_SYMTAB Section.
+    //! ELF_SECTION_TYPES::SHT_SYMTAB Section.
     //!
     //! The number of symbols is taken from the `information` attribute in the section header.
     //!
@@ -149,16 +169,16 @@ class DLL_PUBLIC Parser : public LIEF::Parser {
     //! @brief Parse Dynamic relocations
     //!
     //! It use DT_REL/DT_RELA dynamic entries to parse it
-    template<typename ELF_T>
-    void parse_dynamic_relocations(uint64_t relocations_offset, uint64_t size, bool isRela);
+    template<typename ELF_T, typename REL_T>
+    void parse_dynamic_relocations(uint64_t relocations_offset, uint64_t size);
 
     //! @brief Parse `.plt.got`/`got` relocations
     //!
     //! For:
     //! * ELF32 it uses **DT_JMPREL** and **DT_PLTRELSZ**
     //! * ELF64 it uses **DT_PLTREL** and **DT_PLTRELSZ**
-    template<typename ELF_T>
-    void parse_pltgot_relocations(uint64_t offset, uint64_t size, bool isRela);
+    template<typename ELF_T, typename REL_T>
+    void parse_pltgot_relocations(uint64_t offset, uint64_t size);
 
 
     //! @brief Parse relocations using LIEF::ELF::Section.
@@ -166,8 +186,8 @@ class DLL_PUBLIC Parser : public LIEF::Parser {
     //! Parser::parse_dynamic_relocations and Parser::parse_pltgot_relocations
     //! use parse relocations by using LIEF::ELF::Segment. This method parse relocations
     //! that are not reachable through segments (For example Object file).
-    template<typename ELF_T>
-    void parse_section_relocations(uint64_t offset, uint64_t size, bool isRela);
+    template<typename ELF_T, typename REL_T>
+    void parse_section_relocations(uint64_t offset, uint64_t size, Section *applies_to = nullptr);
 
     //! @brief Parse SymbolVersionRequirement
     //!
@@ -207,9 +227,13 @@ class DLL_PUBLIC Parser : public LIEF::Parser {
     //! @brief Parse Symbols's SYSV hash
     void parse_symbol_sysv_hash(uint64_t offset);
 
+
+    template<typename ELF_T, typename REL_T>
+    uint32_t max_relocation_index(uint64_t relocations_offset, uint64_t size) const;
+
     std::unique_ptr<VectorStream> stream_;
     Binary*                       binary_;
-    uint32_t                      type_;
+    ELF_CLASS                     type_;
     DYNSYM_COUNT_METHODS          count_mtd_;
 };
 

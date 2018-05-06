@@ -20,9 +20,11 @@
 #include <functional>
 #include <iterator>
 
-#include "easylogging++.h"
+#include "LIEF/ELF/Parser.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/logging++.hpp"
+
+#include "LIEF/ELF/hash.hpp"
 
 #include "LIEF/ELF/EnumToString.hpp"
 
@@ -32,13 +34,18 @@
 namespace LIEF {
 namespace ELF {
 
+
+Section operator"" _section(const char* name) {
+  return Section{name};
+}
+
 Section::~Section(void) = default;
 
 
 Section::Section(const Elf64_Shdr* header) :
   LIEF::Section{},
   name_idx_{header->sh_name},
-  type_{static_cast<SECTION_TYPES>(header->sh_type)},
+  type_{static_cast<ELF_SECTION_TYPES>(header->sh_type)},
   flags_{header->sh_flags},
   original_size_{header->sh_size},
   link_{header->sh_link},
@@ -57,7 +64,7 @@ Section::Section(const Elf64_Shdr* header) :
 Section::Section(const Elf32_Shdr* header) :
   LIEF::Section{},
   name_idx_{header->sh_name},
-  type_{static_cast<SECTION_TYPES>(header->sh_type)},
+  type_{static_cast<ELF_SECTION_TYPES>(header->sh_type)},
   flags_{header->sh_flags},
   original_size_{header->sh_size},
   link_{header->sh_link},
@@ -76,12 +83,12 @@ Section::Section(const Elf32_Shdr* header) :
 Section::Section(void) :
   LIEF::Section{},
   name_idx_{0},
-  type_{SECTION_TYPES::SHT_PROGBITS},
+  type_{ELF_SECTION_TYPES::SHT_PROGBITS},
   flags_{0},
   original_size_{0},
   link_{0},
   info_{0},
-  address_align_{16},
+  address_align_{0x1000},
   entry_size_{0},
   segments_{},
   datahandler_{nullptr},
@@ -91,6 +98,22 @@ Section::Section(void) :
   this->offset_          = 0;
   this->size_            = 0;
 }
+
+
+Section::Section(const std::string& name, ELF_SECTION_TYPES type) :
+  LIEF::Section{name},
+  name_idx_{0},
+  type_{type},
+  flags_{0},
+  original_size_{0},
+  link_{0},
+  info_{0},
+  address_align_{0x1000},
+  entry_size_{0},
+  segments_{},
+  datahandler_{nullptr},
+  content_c_{}
+{}
 
 
 Section::Section(uint8_t *data, ELF_CLASS type) :
@@ -149,7 +172,7 @@ uint32_t Section::name_idx(void) const {
   return this->name_idx_;
 }
 
-SECTION_TYPES Section::type(void) const {
+ELF_SECTION_TYPES Section::type(void) const {
   return this->type_;
 }
 
@@ -157,8 +180,20 @@ uint64_t Section::flags(void) const {
   return this->flags_;
 }
 
-bool Section::has_flag(SECTION_FLAGS flag) const {
-  return (this->flags_ & static_cast<uint64_t>(flag)) != 0;
+bool Section::has(ELF_SECTION_FLAGS flag) const {
+  return (this->flags() & static_cast<uint64_t>(flag)) != 0;
+}
+
+
+bool Section::has(const Segment& segment) const {
+
+  auto&& it_segment = std::find_if(
+      std::begin(this->segments_),
+      std::end(this->segments_),
+      [&segment] (Segment* s) {
+        return *s == segment;
+      });
+  return it_segment != std::end(this->segments_);
 }
 
 uint64_t Section::file_offset(void) const {
@@ -181,61 +216,152 @@ uint64_t Section::alignment(void) const {
   return this->address_align_;
 }
 
+uint64_t Section::size(void) const {
+  return this->size_;
+}
+
+uint64_t Section::offset(void) const {
+  return this->offset_;
+}
+
+
+void Section::size(uint64_t size) {
+  if (this->datahandler_ != nullptr) {
+    DataHandler::Node& node = this->datahandler_->get(
+        this->file_offset(), this->size(),
+        DataHandler::Node::SECTION);
+    node.size(size);
+  }
+  this->size_ = size;
+}
+
+
+void Section::offset(uint64_t offset) {
+  if (this->datahandler_ != nullptr) {
+    DataHandler::Node& node = this->datahandler_->get(
+        this->file_offset(), this->size(),
+        DataHandler::Node::SECTION);
+    node.offset(offset);
+  }
+  this->offset_ = offset;
+}
+
 std::vector<uint8_t> Section::content(void) const {
-  if (this->size() == 0 or this->type() == SECTION_TYPES::SHT_NOBITS) {
-    LOG(DEBUG) << "Section '" << this->name() << "' is empty";
+  if (this->size() == 0) {
+    //VLOG(VDEBUG) << "Section '" << this->name() << "' is empty";
     return {};
   }
 
   if (this->datahandler_ == nullptr) {
-    LOG(DEBUG) << "Content from cache";
+    //VLOG(VDEBUG) << "Content from cache";
     return this->content_c_;
-  } else {
-    LOG(DEBUG) << std::hex << "Content from Data Handler [0x" << this->offset_ << ", 0x" << this->size_ << "]";
-    return this->datahandler_->content(this->offset_, this->size_, DataHandler::Node::SECTION);
   }
+
+  //VLOG(VDEBUG) << std::hex << "Content from Data Handler [0x" << this->offset_ << ", 0x" << this->size_ << "]";
+  if (this->size() > Parser::MAX_SECTION_SIZE) {
+    return {};
+  }
+
+  DataHandler::Node& node = this->datahandler_->get(this->offset(), this->size(), DataHandler::Node::SECTION);
+  const std::vector<uint8_t>& binary_content = this->datahandler_->content();
+  return {binary_content.data() + node.offset(), binary_content.data() + node.offset() + node.size()};
 }
 
 uint32_t Section::link(void) const {
   return this->link_;
 }
 
-std::set<SECTION_FLAGS> Section::flags_list(void) const {
-  std::set<SECTION_FLAGS> flags;
+std::set<ELF_SECTION_FLAGS> Section::flags_list(void) const {
+  std::set<ELF_SECTION_FLAGS> flags;
   std::copy_if(
       std::begin(section_flags_array),
       std::end(section_flags_array),
       std::inserter(flags, std::begin(flags)),
-      std::bind(&Section::has_flag, this, std::placeholders::_1));
+      std::bind(static_cast<bool (Section::*)(ELF_SECTION_FLAGS) const>(&Section::has), this, std::placeholders::_1));
 
   return flags;
 }
 
-void Section::content(const std::vector<uint8_t>& data) {
-  if (this->original_size() > 0 and data.size() > this->original_size()) {
-    LOG(WARNING) << "You insert data in the section "
-              << this->name() << " whose the size it bigger ("
-              << std::dec << data.size() << " > "
-              << this->original_size_ << "). It may lead to overaly" << std::endl;
+void Section::content(const std::vector<uint8_t>& content) {
+  if (content.size() > 0 and this->type() == ELF_SECTION_TYPES::SHT_NOBITS) {
+    LOG(WARNING) << "You inserted data (" << std::hex << content.size() << ") in section '"
+                 << this->name() << "' which has SHT_NOBITS type !" << std::endl;
   }
 
-  if (this->type() == SECTION_TYPES::SHT_NOBITS) {
-    LOG(WARNING) << "You insert data in section "
-                 << this->name() << " which has SHT_NOBITS type !" << std::endl;
+  if (this->datahandler_ == nullptr) {
+    VLOG(VDEBUG) << "Set content in the cache";
+    this->content_c_ = content;
+    this->size(content.size());
+    return;
   }
 
-  if (data.size() > 0) {
-    if (this->datahandler_ == nullptr) {
-      this->content_c_ = data;
-    } else {
-      this->datahandler_->content(this->offset(), data, DataHandler::Node::SECTION);
-    }
+  VLOG(VDEBUG) << "Set content in the data handler [0x" << std::hex
+               << this->file_offset() << ", 0x" << content.size() << "]";
+
+
+  DataHandler::Node& node = this->datahandler_->get(
+      this->file_offset(),
+      this->size(),
+      DataHandler::Node::SECTION);
+
+  std::vector<uint8_t>& binary_content = this->datahandler_->content();
+  this->datahandler_->reserve(node.offset(), content.size());
+
+  if (node.size() < content.size()) {
+    LOG(WARNING) << "You inserted data in section '"
+                 << this->name() << "' It may lead to overaly! (" << std::hex << node.size() << " < " << content.size() << ")" << std::endl;
   }
 
-  this->size_ = data.size();
+  this->size(content.size());
+
+  std::copy(
+      std::begin(content),
+      std::end(content),
+      std::begin(binary_content) + node.offset());
+
 }
 
-void Section::type(SECTION_TYPES type) {
+
+void Section::content(std::vector<uint8_t>&& content) {
+  if (content.size() > 0 and this->type() == ELF_SECTION_TYPES::SHT_NOBITS) {
+    LOG(WARNING) << "You inserted data (" << std::hex << content.size() << ") in section '"
+                 << this->name() << "' which has SHT_NOBITS type !" << std::endl;
+  }
+
+  if (this->datahandler_ == nullptr) {
+    VLOG(VDEBUG) << "Set content in the cache";
+    this->content_c_ = std::move(content);
+    this->size(content.size());
+    return;
+  }
+
+
+  VLOG(VDEBUG) << "Set content in the data handler [0x" << std::hex
+               << this->file_offset() << ", 0x" << content.size() << "]";
+
+
+  DataHandler::Node& node = this->datahandler_->get(
+      this->file_offset(),
+      this->size(),
+      DataHandler::Node::SECTION);
+
+  std::vector<uint8_t>& binary_content = this->datahandler_->content();
+  this->datahandler_->reserve(node.offset(), content.size());
+
+  if (node.size() < content.size()) {
+    LOG(WARNING) << "You inserted data in section '"
+                 << this->name() << "' It may lead to overaly! (" << std::hex << node.size() << " < " << content.size() << ")" << std::endl;
+  }
+
+  this->size(content.size());
+
+  std::move(
+      std::begin(content),
+      std::end(content),
+      std::begin(binary_content) + node.offset());
+}
+
+void Section::type(ELF_SECTION_TYPES type) {
   this->type_ = type;
 }
 
@@ -243,16 +369,16 @@ void Section::flags(uint64_t flags) {
   this->flags_ = flags;
 }
 
-void Section::add_flag(SECTION_FLAGS flag) {
-  this->flags_ = (this->flags_ | static_cast<uint64_t>(flag));
+void Section::add(ELF_SECTION_FLAGS flag) {
+  this->flags(this->flags() | static_cast<uint64_t>(flag));
 }
 
-void Section::remove_flag(SECTION_FLAGS flag) {
-  this->flags_ = (this->flags_ & (~ static_cast<uint64_t>(flag)));
+void Section::remove(ELF_SECTION_FLAGS flag) {
+  this->flags(this->flags() & (~ static_cast<uint64_t>(flag)));
 }
 
 void Section::clear_flags(void) {
-  this->flags_ = 0;
+  this->flags(0);
 }
 
 void Section::file_offset(uint64_t offset) {
@@ -277,23 +403,48 @@ void Section::entry_size(uint64_t entry_size) {
 
 
 it_segments Section::segments(void) {
-  return it_segments{std::ref(this->segments_)};
+  return this->segments_;
 }
 
 it_const_segments Section::segments(void) const {
-  return it_const_segments{std::cref(this->segments_)};
+  return this->segments_;
+}
+
+
+Section& Section::clear(uint8_t value) {
+
+  if (this->datahandler_ == nullptr) {
+    std::fill(
+        std::begin(this->content_c_),
+        std::end(this->content_c_),
+        value);
+    return *this;
+  }
+
+  std::vector<uint8_t>& binary_content = this->datahandler_->content();
+  DataHandler::Node& node = this->datahandler_->get(
+      this->file_offset(),
+      this->size(),
+      DataHandler::Node::SECTION);
+
+  std::fill_n(std::begin(binary_content) + node.offset(), this->size(), value);
+  return *this;
+
 }
 
 void Section::accept(Visitor& visitor) const {
+  visitor.visit(*this);
+}
 
-  LIEF::Section::accept(visitor);
 
-  visitor.visit(this->type());
-  visitor.visit(this->flags());
-  visitor.visit(this->link());
-  visitor.visit(this->information());
-  visitor.visit(this->alignment());
-  visitor.visit(this->content());
+Section& Section::operator+=(ELF_SECTION_FLAGS c) {
+  this->add(c);
+  return *this;
+}
+
+Section& Section::operator-=(ELF_SECTION_FLAGS c) {
+  this->remove(c);
+  return *this;
 }
 
 
@@ -314,7 +465,7 @@ std::ostream& operator<<(std::ostream& os, const Section& section)
   std::string flags_str = std::accumulate(
      std::begin(flags),
      std::end(flags), std::string{},
-     [] (const std::string& a, SECTION_FLAGS b) {
+     [] (const std::string& a, ELF_SECTION_FLAGS b) {
          return a.empty() ? to_string(b) : a + " " + to_string(b);
      });
 

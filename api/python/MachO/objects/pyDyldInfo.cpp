@@ -18,7 +18,7 @@
 #include <string>
 #include <sstream>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/MachO/hash.hpp"
 #include "LIEF/MachO/DyldInfo.hpp"
 
 #include "pyMachO.hpp"
@@ -29,6 +29,8 @@ using getter_t = T (DyldInfo::*)(void) const;
 template<class T>
 using setter_t = void (DyldInfo::*)(T);
 
+template<class T>
+using no_const_getter = T (DyldInfo::*)(void);
 
 void init_MachO_DyldInfo_class(py::module& m) {
 
@@ -53,6 +55,15 @@ void init_MachO_DyldInfo_class(py::module& m) {
         "\t``/usr/include/mach-o/loader.h``\n",
         py::return_value_policy::reference_internal)
 
+    .def_property("rebase_opcodes",
+        static_cast<getter_t<const buffer_t&>>(&DyldInfo::rebase_opcodes),
+        static_cast<setter_t<const buffer_t&>>(&DyldInfo::rebase_opcodes),
+        "Return Rebase's opcodes as ``list`` of bytes")
+
+    .def_property_readonly("show_rebases_opcodes",
+        &DyldInfo::show_rebases_opcodes,
+        "Return the rebase opcodes in a humman-readable way",
+        py::return_value_policy::reference_internal)
 
     .def_property("bind",
         static_cast<getter_t<const LIEF::MachO::DyldInfo::info_t&>>(&DyldInfo::bind),
@@ -72,6 +83,17 @@ void init_MachO_DyldInfo_class(py::module& m) {
 
         ".. seealso::\n\n"
         "\t``/usr/include/mach-o/loader.h``\n",
+        py::return_value_policy::reference_internal)
+
+
+    .def_property("bind_opcodes",
+        static_cast<getter_t<const buffer_t&>>(&DyldInfo::bind_opcodes),
+        static_cast<setter_t<const buffer_t&>>(&DyldInfo::bind_opcodes),
+        "Return Binding's opcodes as ``list`` of bytes")
+
+    .def_property_readonly("show_bind_opcodes",
+        &DyldInfo::show_bind_opcodes,
+        "Return the bind opcodes in a humman-readable way",
         py::return_value_policy::reference_internal)
 
 
@@ -99,6 +121,16 @@ void init_MachO_DyldInfo_class(py::module& m) {
         py::return_value_policy::reference_internal)
 
 
+    .def_property("weak_bind_opcodes",
+        static_cast<getter_t<const buffer_t&>>(&DyldInfo::weak_bind_opcodes),
+        static_cast<setter_t<const buffer_t&>>(&DyldInfo::weak_bind_opcodes),
+        "Return **Weak** binding's opcodes as ``list`` of bytes")
+
+    .def_property_readonly("show_weak_bind_opcodes",
+        &DyldInfo::show_weak_bind_opcodes,
+        "Return the weak bind opcodes in a humman-readable way",
+        py::return_value_policy::reference_internal)
+
     .def_property("lazy_bind",
         static_cast<getter_t<const LIEF::MachO::DyldInfo::info_t&>>(&DyldInfo::lazy_bind),
         static_cast<setter_t<const LIEF::MachO::DyldInfo::info_t&>>(&DyldInfo::lazy_bind),
@@ -119,6 +151,21 @@ void init_MachO_DyldInfo_class(py::module& m) {
         "\t``/usr/include/mach-o/loader.h``\n",
         py::return_value_policy::reference_internal)
 
+
+    .def_property("lazy_bind_opcodes",
+        static_cast<getter_t<const buffer_t&>>(&DyldInfo::lazy_bind_opcodes),
+        static_cast<setter_t<const buffer_t&>>(&DyldInfo::lazy_bind_opcodes),
+        "Return **lazy** binding's opcodes as ``list`` of bytes")
+
+    .def_property_readonly("show_lazy_bind_opcodes",
+        &DyldInfo::show_lazy_bind_opcodes,
+        "Return the weak bind opcodes in a humman-readable way",
+        py::return_value_policy::reference_internal)
+
+    .def_property_readonly("bindings",
+        static_cast<no_const_getter<it_binding_info>>(&DyldInfo::bindings),
+        "Return an iterator over Dyld's " RST_CLASS_REF(lief.MachO.BindingInfo) "",
+        py::return_value_policy::reference_internal)
 
     .def_property("export_info",
         static_cast<getter_t<const LIEF::MachO::DyldInfo::info_t&>>(&DyldInfo::export_info),
@@ -150,6 +197,21 @@ void init_MachO_DyldInfo_class(py::module& m) {
 
         ".. seealso::\n\n"
         "\t``/usr/include/mach-o/loader.h``\n",
+        py::return_value_policy::reference_internal)
+
+    .def_property("export_trie",
+        static_cast<getter_t<const buffer_t&>>(&DyldInfo::export_trie),
+        static_cast<setter_t<const buffer_t&>>(&DyldInfo::export_trie),
+        "Return Export's trie as ``list`` of bytes")
+
+    .def_property_readonly("exports",
+        static_cast<no_const_getter<it_export_info>>(&DyldInfo::exports),
+        "Return an iterator over Dyld's " RST_CLASS_REF(lief.MachO.ExportInfo) "",
+        py::return_value_policy::reference_internal)
+
+    .def_property_readonly("show_export_trie",
+        &DyldInfo::show_export_trie,
+        "Return the export trie in a humman-readable way",
         py::return_value_policy::reference_internal)
 
     .def("set_rebase_offset",
@@ -201,7 +263,7 @@ void init_MachO_DyldInfo_class(py::module& m) {
     .def("__ne__", &DyldInfo::operator!=)
     .def("__hash__",
         [] (const DyldInfo& info) {
-          return LIEF::Hash::hash(info);
+          return Hash::hash(info);
         })
 
 

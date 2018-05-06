@@ -23,7 +23,7 @@
 
 #include "LIEF/exception.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/MachO/hash.hpp"
 
 #include "LIEF/MachO/Header.hpp"
 #include "LIEF/MachO/EnumToString.hpp"
@@ -120,19 +120,19 @@ uint32_t Header::reserved(void) const {
 }
 
 std::pair<ARCHITECTURES, std::set<MODES>> Header::abstract_architecture(void) const {
-  try {
+  if (arch_macho_to_lief.count(this->cpu_type()) != 0) {
     return arch_macho_to_lief.at(this->cpu_type());
-  } catch (const std::out_of_range&) {
-    throw not_implemented(to_string(this->cpu_type()));
+  } else {
+    return {ARCHITECTURES::ARCH_NONE, {}};
   }
 }
 
 
 OBJECT_TYPES Header::abstract_object_type(void) const {
-  try {
+  if (obj_macho_to_lief.count(this->file_type()) != 0) {
     return obj_macho_to_lief.at(this->file_type());
-  } catch (const std::out_of_range&) {
-    throw not_implemented(to_string(this->file_type()));
+  } else {
+    return OBJECT_TYPES::TYPE_NONE;
   }
 }
 
@@ -153,27 +153,27 @@ ENDIANNESS Header::abstract_endianness(void) const {
 std::set<HEADER_FLAGS> Header::flags_list(void) const {
   std::set<HEADER_FLAGS> flags;
 
-  auto has_flag = [this] (HEADER_FLAGS flag) {
-    return (static_cast<uint32_t>(flag) & this->flags_) > 0;
-  };
-
   std::copy_if(
       std::begin(header_flags_array),
       std::end(header_flags_array),
       std::inserter(flags, std::begin(flags)),
-      has_flag);
+      std::bind(&Header::has, this, std::placeholders::_1));
 
   return flags;
 }
 
 
-bool Header::has_flag(HEADER_FLAGS flag) const {
-  return (this->flags_ & static_cast<uint32_t>(flag)) > 0;
+bool Header::has(HEADER_FLAGS flag) const {
+  return (this->flags() & static_cast<uint32_t>(flag)) > 0;
 }
 
 
-void Header::remove_flag(HEADER_FLAGS flag) {
-  this->flags_ &= ~static_cast<uint32_t>(flag);
+void Header::add(HEADER_FLAGS flag) {
+  this->flags(this->flags() | static_cast<uint32_t>(flag));
+}
+
+void Header::remove(HEADER_FLAGS flag) {
+  this->flags(this->flags() & ~static_cast<uint32_t>(flag));
 }
 
 
@@ -210,14 +210,7 @@ void Header::reserved(uint32_t reserved) {
 
 
 void Header::accept(Visitor& visitor) const {
-  visitor.visit(this->magic());
-  visitor.visit(this->cpu_type());
-  visitor.visit(this->cpu_subtype());
-  visitor.visit(this->file_type());
-  visitor.visit(this->nb_cmds());
-  visitor.visit(this->sizeof_cmds());
-  visitor.visit(this->flags());
-  visitor.visit(this->reserved());
+  visitor.visit(*this);
 }
 
 bool Header::operator==(const Header& rhs) const {
@@ -230,6 +223,16 @@ bool Header::operator!=(const Header& rhs) const {
   return not (*this == rhs);
 }
 
+
+Header& Header::operator+=(HEADER_FLAGS c) {
+  this->add(c);
+  return *this;
+}
+
+Header& Header::operator-=(HEADER_FLAGS c) {
+  this->remove(c);
+  return *this;
+}
 
 
 std::ostream& operator<<(std::ostream& os, const Header& hdr) {

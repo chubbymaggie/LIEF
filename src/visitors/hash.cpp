@@ -18,9 +18,79 @@
 
 #include "mbedtls/sha256.h"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/hash.hpp"
+
+
+#if defined(LIEF_PE_SUPPORT)
+#include "LIEF/PE/hash.hpp"
+#endif
+
+#if defined(LIEF_ELF_SUPPORT)
+#include "LIEF/ELF/hash.hpp"
+#endif
+
+#if defined(LIEF_MACHO_SUPPORT)
+#include "LIEF/MachO/hash.hpp"
+#endif
+
+#if defined(LIEF_OAT_SUPPORT)
+#include "LIEF/OAT/hash.hpp"
+#endif
+
+#if defined(LIEF_ART_SUPPORT)
+#include "LIEF/ART/hash.hpp"
+#endif
+
+#if defined(LIEF_DEX_SUPPORT)
+#include "LIEF/DEX/hash.hpp"
+#endif
+
+#if defined(LIEF_VDEX_SUPPORT)
+#include "LIEF/VDEX/hash.hpp"
+#endif
 
 namespace LIEF {
+
+size_t hash(const Object& v) {
+  size_t value = 0;
+
+#if defined(LIEF_PE_SUPPORT)
+  value = Hash::combine(value, Hash::hash<PE::Hash>(v));
+#endif
+
+#if defined(LIEF_ELF_SUPPORT)
+  value = Hash::combine(value, Hash::hash<ELF::Hash>(v));
+#endif
+
+#if defined(LIEF_MACHO_SUPPORT)
+  value = Hash::combine(value, Hash::hash<MachO::Hash>(v));
+#endif
+
+#if defined(LIEF_OAT_SUPPORT)
+  value = Hash::combine(value, Hash::hash<OAT::Hash>(v));
+#endif
+
+#if defined(LIEF_ART_SUPPORT)
+  value = Hash::combine(value, Hash::hash<ART::Hash>(v));
+#endif
+
+#if defined(LIEF_DEX_SUPPORT)
+  value = Hash::combine(value, Hash::hash<DEX::Hash>(v));
+#endif
+
+#if defined(LIEF_VDEX_SUPPORT)
+  value = Hash::combine(value, Hash::hash<VDEX::Hash>(v));
+#endif
+
+  return value;
+
+}
+
+size_t hash(const std::vector<uint8_t>& raw) {
+  return Hash::hash(raw);
+}
+
+Hash::~Hash(void) = default;
 
 Hash::Hash(void) :
   value_{0}
@@ -30,20 +100,33 @@ Hash::Hash(size_t init_value) :
   value_{init_value}
 {}
 
-void Hash::visit(size_t n) {
-  this->value_ = combine(this->value_, std::hash<size_t>{}(n));
+
+Hash& Hash::process(const Object& obj) {
+  Hash hasher;
+  obj.accept(hasher);
+  this->value_ = combine(this->value_, hasher.value());
+  return *this;
 }
 
-void Hash::visit(const std::string& str) {
+Hash& Hash::process(size_t integer) {
+  this->value_ = combine(this->value_, std::hash<size_t>{}(integer));
+  return *this;
+}
+
+Hash& Hash::process(const std::string& str) {
   this->value_ = combine(this->value_, std::hash<std::string>{}(str));
+  return *this;
 }
 
-void Hash::visit(const std::u16string& str) {
+
+Hash& Hash::process(const std::u16string& str) {
   this->value_ = combine(this->value_, std::hash<std::u16string>{}(str));
+  return *this;
 }
 
-void Hash::visit(const std::vector<uint8_t>& raw) {
+Hash& Hash::process(const std::vector<uint8_t>& raw) {
   this->value_ = combine(this->value_, Hash::hash(raw));
+  return *this;
 }
 
 size_t Hash::value(void) const {

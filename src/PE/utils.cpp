@@ -23,10 +23,9 @@
 #include <sstream>
 #include <string>
 
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 #include "mbedtls/md5.h"
 
-#include "LIEF/utf8.h"
 #include "LIEF/exception.hpp"
 
 #include "LIEF/PE/utils.hpp"
@@ -150,18 +149,6 @@ PE_TYPE get_type(const std::vector<uint8_t>& raw) {
 }
 
 
-std::string u16tou8(const std::u16string& string) {
-  std::string name;
-  utf8::utf16to8(std::begin(string), std::end(string), std::back_inserter(name));
-  return name;
-}
-
-std::u16string u8tou16(const std::string& string) {
-  std::u16string name;
-  utf8::utf8to16(std::begin(string), std::end(string), std::back_inserter(name));
-  return name;
-}
-
 std::string get_imphash(const Binary& binary) {
   uint8_t md5_buffer[16];
   if (not binary.has_imports()) {
@@ -231,7 +218,7 @@ Import resolve_ordinals(const Import& import, bool strict) {
         [] (const ImportEntry& entry) {
           return not entry.is_ordinal();
         })) {
-    LOG(DEBUG) << "All imports use name. No ordinal!";
+    VLOG(VDEBUG) << "All imports use name. No ordinal!";
     return import;
   }
 
@@ -248,19 +235,19 @@ Import resolve_ordinals(const Import& import, bool strict) {
     if (strict) {
       throw not_found(msg);
     }
-    LOG(DEBUG) << msg;
+    VLOG(VDEBUG) << msg;
     return import;
   }
   Import resolved_import = import;
   for (ImportEntry& entry : resolved_import.entries()) {
     if (entry.is_ordinal()) {
-      LOG(DEBUG) << "Dealing with: " << entry;
+      VLOG(VDEBUG) << "Dealing with: " << entry;
       auto&& it_entry = it_library_lookup->second.find(static_cast<uint32_t>(entry.ordinal()));
       if (it_entry == std::end(it_library_lookup->second)) {
         if (strict) {
           throw not_found("Unable to resolve ordinal: " + std::to_string(entry.ordinal()));
         }
-        LOG(DEBUG) << "Unable to resolve ordinal:" << std::hex << entry.ordinal();
+        VLOG(VDEBUG) << "Unable to resolve ordinal:" << std::hex << entry.ordinal();
         continue;
       }
       entry.data(0);

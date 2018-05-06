@@ -21,18 +21,28 @@
 
 #include "LIEF/types.hpp"
 #include "LIEF/visibility.h"
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 
 #include "LIEF/Abstract/type_traits.hpp"
 #include "LIEF/Abstract/Header.hpp"
 #include "LIEF/Abstract/Symbol.hpp"
 #include "LIEF/Abstract/Section.hpp"
+#include "LIEF/Abstract/Relocation.hpp"
 
 //! LIEF namespace
 namespace LIEF {
 
 //! @brief Abstract binary
-class DLL_PUBLIC Binary : public Visitable {
+class LIEF_API Binary : public Object {
+
+  public:
+
+    //! Type of a virtual address
+    enum class VA_TYPES {
+      AUTO = 0, ///< Guess if it's relative or not
+      RVA  = 1, ///< Relative
+      VA   = 2, ///< Absolute
+    };
 
   public:
     Binary(void);
@@ -45,17 +55,29 @@ class DLL_PUBLIC Binary : public Visitable {
     EXE_FORMATS format(void) const;
 
     //! @brief Return the abstract header of the binary
-    Header get_header(void) const;
+    Header header(void) const;
 
     //! @brief Return list of symbols whose elements **can** be modified
-    it_symbols        get_symbols(void);
+    it_symbols symbols(void);
 
     //! @brief Return list of symbols whose elements **can't** be modified
-    it_const_symbols  get_symbols(void) const;
+    it_const_symbols  symbols(void) const;
+
+    //! @brief Check if a Symbol with the given name exists
+    bool has_symbol(const std::string& name) const;
+
+    //! @brief Return the Symbol with the given name
+    const Symbol& get_symbol(const std::string& name) const;
+
+    Symbol& get_symbol(const std::string& name);
 
     //! @brief Returns binary's sections
-    it_sections       get_sections(void);
-    it_const_sections get_sections(void) const;
+    it_sections       sections(void);
+    it_const_sections sections(void) const;
+
+    //! @brief Returns binary's relocations
+    it_relocations       relocations(void);
+    it_const_relocations relocations(void) const;
 
     //! @brief Binary's entrypoint (if any)
     virtual uint64_t entrypoint(void) const = 0;
@@ -67,13 +89,13 @@ class DLL_PUBLIC Binary : public Visitable {
     uint64_t original_size(void) const;
 
     //! @brief Return functions's name exported by the binary
-    std::vector<std::string> get_exported_functions(void) const;
+    std::vector<std::string> exported_functions(void) const;
 
     //! @brief Return libraries which are imported by the binary
-    std::vector<std::string> get_imported_libraries(void) const;
+    std::vector<std::string> imported_libraries(void) const;
 
     //! @brief Return functions's name imported by the binary
-    std::vector<std::string> get_imported_functions(void) const;
+    std::vector<std::string> imported_functions(void) const;
 
     //! @brief Return the address of the given function name
     virtual uint64_t get_function_address(const std::string& func_name) const;
@@ -81,22 +103,23 @@ class DLL_PUBLIC Binary : public Visitable {
     //! @brief Method so that a ``visitor`` can visit us
     virtual void accept(Visitor& visitor) const override;
 
+    std::vector<uint64_t> xref(uint64_t address) const;
 
     //! @brief Patch the content at virtual address @p address with @p patch_value
     //!
     //! @param[in] address Address to patch
     //! @param[in] patch_value Patch to apply
-    virtual void patch_address(uint64_t address, const std::vector<uint8_t>& patch_value) = 0;
+    virtual void patch_address(uint64_t address, const std::vector<uint8_t>& patch_value, VA_TYPES addr_type = VA_TYPES::AUTO) = 0;
 
     //! @brief Patch the address with the given value
     //!
     //! @param[in] address Address to patch
     //! @param[in] patch_value Patch to apply
     //! @param[in] size Size of the value in **bytes** (1, 2, ... 8)
-    virtual void patch_address(uint64_t address, uint64_t patch_value, size_t size = sizeof(uint64_t)) = 0;
+    virtual void patch_address(uint64_t address, uint64_t patch_value, size_t size = sizeof(uint64_t), VA_TYPES addr_type = VA_TYPES::AUTO) = 0;
 
     //! @brief Return the content located at virtual address
-    virtual std::vector<uint8_t> get_content_from_virtual_address(uint64_t virtual_address, uint64_t size) const = 0;
+    virtual std::vector<uint8_t> get_content_from_virtual_address(uint64_t virtual_address, uint64_t size, VA_TYPES addr_type = VA_TYPES::AUTO) const = 0;
 
     //! @brief Change binary's name
     void name(const std::string& name);
@@ -108,9 +131,15 @@ class DLL_PUBLIC Binary : public Visitable {
     //! done with this value
     void original_size(uint64_t size);
 
+    //! @brief Check if the binary is position independent
+    virtual bool is_pie(void) const = 0;
+
+    //! @brief Check if the binary uses ``NX`` protection
+    virtual bool has_nx(void) const = 0;
+
     virtual std::ostream& print(std::ostream& os) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Binary& binary);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Binary& binary);
 
   protected:
     std::string name_;
@@ -120,6 +149,7 @@ class DLL_PUBLIC Binary : public Visitable {
     virtual Header                    get_abstract_header(void) const = 0;
     virtual symbols_t                 get_abstract_symbols(void)      = 0;
     virtual sections_t                get_abstract_sections(void)     = 0;
+    virtual relocations_t             get_abstract_relocations(void)  = 0;
 
     virtual std::vector<std::string>  get_abstract_exported_functions(void) const = 0;
     virtual std::vector<std::string>  get_abstract_imported_functions(void) const = 0;

@@ -17,7 +17,8 @@
 #include <string>
 #include <sstream>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
+#include "LIEF/utils.hpp"
 #include "LIEF/PE/signature/AuthenticatedAttributes.hpp"
 
 #include "pyPE.hpp"
@@ -32,7 +33,7 @@ using setter_t = void (AuthenticatedAttributes::*)(T);
 
 void init_PE_AuthenticatedAttributes_class(py::module& m) {
 
-  py::class_<AuthenticatedAttributes>(m, "AuthenticatedAttributes")
+  py::class_<AuthenticatedAttributes, LIEF::Object>(m, "AuthenticatedAttributes")
 
     .def_property_readonly("content_type",
         &AuthenticatedAttributes::content_type,
@@ -44,7 +45,7 @@ void init_PE_AuthenticatedAttributes_class(py::module& m) {
 
     .def_property_readonly("program_name",
         [] (const AuthenticatedAttributes& authenticated_attributes) {
-          return safe_string_converter(u16tou8(authenticated_attributes.program_name()));
+          return safe_string_converter(LIEF::u16tou8(authenticated_attributes.program_name()));
         },
         "Return the program description (if any)")
 

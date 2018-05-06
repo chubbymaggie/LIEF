@@ -37,17 +37,22 @@ namespace ELF {
 class Segment;
 class Parser;
 class Binary;
+class Builder;
+
+LIEF_API Section operator"" _section(const char* name);
 
 //! @brief Class wich represent sections
-class DLL_PUBLIC Section : public LIEF::Section {
+class LIEF_API Section : public LIEF::Section {
 
   friend class Parser;
   friend class Binary;
+  friend class Builder;
 
  public:
     Section(uint8_t *data, ELF_CLASS type);
     Section(const Elf64_Shdr* header);
     Section(const Elf32_Shdr* header);
+    Section(const std::string& name, ELF_SECTION_TYPES type = ELF_SECTION_TYPES::SHT_PROGBITS);
 
     Section(void);
     ~Section(void);
@@ -56,8 +61,8 @@ class DLL_PUBLIC Section : public LIEF::Section {
     Section(const Section& other);
     void swap(Section& other);
 
-    uint32_t                  name_idx(void) const;
-    SECTION_TYPES type(void) const;
+    uint32_t          name_idx(void) const;
+    ELF_SECTION_TYPES type(void) const;
 
     // ============================
     // LIEF::Section implementation
@@ -69,16 +74,30 @@ class DLL_PUBLIC Section : public LIEF::Section {
     //! @brief Set section content
     virtual void content(const std::vector<uint8_t>& data) override;
 
-    //! @brief Section flags LIEF::ELF::SECTION_FLAGS
+    void content(std::vector<uint8_t>&& data);
+
+    //! @brief Section flags LIEF::ELF::ELF_SECTION_FLAGS
     uint64_t flags(void) const;
 
     //! @brief ``True`` if the section has the given flag
     //!
     //! @param[in] flag flag to test
-    bool has_flag(SECTION_FLAGS flag) const;
+    bool has(ELF_SECTION_FLAGS flag) const;
+
+    //! @brief ``True`` if the section is in the given segment
+    bool has(const Segment& segment) const;
 
     //! @brief Return section flags as a ``std::set``
-    std::set<SECTION_FLAGS> flags_list(void) const;
+    std::set<ELF_SECTION_FLAGS> flags_list(void) const;
+
+    virtual uint64_t size(void) const override;
+
+    virtual void size(uint64_t size) override;
+
+    virtual void offset(uint64_t offset) override;
+
+    virtual uint64_t offset(void) const override;
+
 
     //! @see offset
     uint64_t file_offset(void) const;
@@ -89,10 +108,13 @@ class DLL_PUBLIC Section : public LIEF::Section {
     uint32_t link(void) const;
 
 
-    void type(SECTION_TYPES type);
+    //! Clear the content of the section with the given ``value``
+    Section& clear(uint8_t value = 0);
+    void add(ELF_SECTION_FLAGS flag);
+    void remove(ELF_SECTION_FLAGS flag);
+
+    void type(ELF_SECTION_TYPES type);
     void flags(uint64_t flags);
-    void add_flag(SECTION_FLAGS flag);
-    void remove_flag(SECTION_FLAGS flag);
     void clear_flags(void);
     void file_offset(uint64_t offset);
     void link(uint32_t link);
@@ -105,16 +127,19 @@ class DLL_PUBLIC Section : public LIEF::Section {
 
     virtual void accept(Visitor& visitor) const override;
 
+    Section& operator+=(ELF_SECTION_FLAGS c);
+    Section& operator-=(ELF_SECTION_FLAGS c);
+
     bool operator==(const Section& rhs) const;
     bool operator!=(const Section& rhs) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Section& section);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Section& section);
 
   private:
 
     // virtualAddress_, offset_ and size_ are inherited from LIEF::Section
     uint32_t              name_idx_;
-    SECTION_TYPES         type_;
+    ELF_SECTION_TYPES     type_;
     uint64_t              flags_;
     uint64_t              original_size_;
     uint32_t              link_;

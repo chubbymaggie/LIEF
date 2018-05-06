@@ -17,8 +17,9 @@
 #include <sstream>
 #include <numeric>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 
+#include "LIEF/utils.hpp"
 #include "LIEF/PE/utils.hpp"
 #include "LIEF/PE/EnumToString.hpp"
 
@@ -72,11 +73,7 @@ void ResourceVarFileInfo::translations(const std::vector<uint32_t>& translations
 }
 
 void ResourceVarFileInfo::accept(Visitor& visitor) const {
-  visitor.visit(this->type());
-  visitor.visit(this->key());
-  for (uint32_t t : this->translations()) {
-    visitor.visit(t);
-  }
+  visitor.visit(*this);
 }
 
 
@@ -102,7 +99,7 @@ std::ostream& operator<<(std::ostream& os, const ResourceVarFileInfo& entry) {
        CODE_PAGES cp = static_cast<CODE_PAGES>(msb);
 
        RESOURCE_LANGS lang = static_cast<RESOURCE_LANGS>(lsb & 0x3ff);
-       RESOURCE_SUBLANGS sublang = static_cast<RESOURCE_SUBLANGS>(lsb >> 10);
+       RESOURCE_SUBLANGS sublang = ResourcesManager::sub_lang(lang, (lsb >> 10));
 
        ss << to_string(cp) << "/" << to_string(lang) << "/" << to_string(sublang);
        return a.empty() ? ss.str() : a + " - " + ss.str();

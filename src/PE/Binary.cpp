@@ -20,9 +20,9 @@
 #include <numeric>
 #include <limits>
 
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 #include "LIEF/exception.hpp"
 #include "LIEF/utils.hpp"
 
@@ -81,6 +81,7 @@ Binary::Binary(void) :
   rich_header_{},
   header_{},
   optional_header_{},
+  available_sections_space_{0},
   has_rich_header_{false},
   has_tls_{false},
   has_imports_{false},
@@ -100,7 +101,10 @@ Binary::Binary(void) :
   resources_{nullptr},
   imports_{},
   export_{},
-  debug_{}
+  debug_{},
+  overlay_{},
+  dos_stub_{},
+  load_configuration_{nullptr}
 {}
 
 Binary::~Binary(void) {
@@ -112,8 +116,16 @@ Binary::~Binary(void) {
     delete directory;
   }
 
+  for (Relocation *relocation : this->relocations_) {
+    delete relocation;
+  }
+
   if (this->resources_ != nullptr) {
     delete this->resources_;
+  }
+
+  if (this->load_configuration_ != nullptr) {
+    delete this->load_configuration_;
   }
 }
 
@@ -160,8 +172,8 @@ Binary::Binary(const std::string& name, PE_TYPE type) :
   this->data_directories_.emplace_back(new DataDirectory{DATA_DIRECTORY::DELAY_IMPORT_DESCRIPTOR});
   this->data_directories_.emplace_back(new DataDirectory{DATA_DIRECTORY::CLR_RUNTIME_HEADER});
 
-  this->optional_header().sizeof_headers(this->get_sizeof_headers());
-  this->optional_header().sizeof_image(this->get_virtual_size());
+  this->optional_header().sizeof_headers(this->sizeof_headers());
+  this->optional_header().sizeof_image(this->virtual_size());
 }
 
 void Binary::write(const std::string& filename) {
@@ -291,7 +303,7 @@ DataDirectory& Binary::data_directory(DATA_DIRECTORY index) {
 
 const DataDirectory& Binary::data_directory(DATA_DIRECTORY index) const {
   if (static_cast<size_t>(index) < this->data_directories_.size() and this->data_directories_[static_cast<size_t>(index)] != nullptr) {
-    return *this->data_directories_[index];
+    return *this->data_directories_[static_cast<size_t>(index)];
   } else {
     throw not_found("Data directory doesn't exist");
   }
@@ -336,7 +348,18 @@ bool Binary::has_debug(void) const {
 
 
 bool Binary::has_configuration(void) const {
-  return this->has_configuration_;
+  return this->has_configuration_ and this->load_configuration_ != nullptr;
+}
+
+const LoadConfiguration& Binary::load_configuration(void) const {
+  if (not this->has_configuration()) {
+    throw not_found("The binary doesn't have load configuration");
+  }
+  return *this->load_configuration_;
+}
+
+LoadConfiguration& Binary::load_configuration(void) {
+  return const_cast<LoadConfiguration&>(static_cast<const Binary*>(this)->load_configuration());
 }
 
 //
@@ -354,13 +377,13 @@ LIEF::symbols_t Binary::get_abstract_symbols(void) {
 // Sections
 // ========
 
-it_sections Binary::get_sections(void) {
-  return it_sections{this->sections_};
+it_sections Binary::sections(void) {
+  return this->sections_;
 }
 
 
-it_const_sections Binary::get_sections(void) const {
-  return it_const_sections{this->sections_};
+it_const_sections Binary::sections(void) const {
+  return this->sections_;
 }
 
 LIEF::sections_t Binary::get_abstract_sections(void) {
@@ -388,7 +411,7 @@ const Section& Binary::get_section(const std::string& name) const {
 }
 
 
-const Section& Binary::get_import_section(void) const {
+const Section& Binary::import_section(void) const {
   if (not this->has_imports()) {
     throw not_found("Current binary doesn't have Import directory");
   }
@@ -397,8 +420,8 @@ const Section& Binary::get_import_section(void) const {
 }
 
 
-Section& Binary::get_import_section(void) {
-  return const_cast<Section&>(static_cast<const Binary*>(this)->get_import_section());
+Section& Binary::import_section(void) {
+  return const_cast<Section&>(static_cast<const Binary*>(this)->import_section());
 }
 
 // Headers
@@ -441,7 +464,7 @@ OptionalHeader& Binary::optional_header(void) {
 
 
 
-uint64_t Binary::get_virtual_size(void) const {
+uint64_t Binary::virtual_size(void) const {
   uint64_t size = 0;
   size += this->dos_header().addressof_new_exeheader();
   size += sizeof(pe_header);
@@ -458,7 +481,7 @@ uint64_t Binary::get_virtual_size(void) const {
 }
 
 
-uint32_t Binary::get_sizeof_headers(void) const {
+uint32_t Binary::sizeof_headers(void) const {
   uint32_t size = 0;
   size += this->dos_header().addressof_new_exeheader();
   size += sizeof(pe_header);
@@ -480,8 +503,8 @@ void Binary::delete_section(const std::string& name) {
 
   this->header().numberof_sections(this->header().numberof_sections() - 1);
 
-  this->optional_header().sizeof_headers(this->get_sizeof_headers());
-  this->optional_header().sizeof_image(static_cast<uint32_t>(this->get_virtual_size()));
+  this->optional_header().sizeof_headers(this->sizeof_headers());
+  this->optional_header().sizeof_image(static_cast<uint32_t>(this->virtual_size()));
 
   this->sections_.erase(
       std::remove_if(
@@ -494,7 +517,25 @@ void Binary::delete_section(const std::string& name) {
       std::end(this->sections_));
 }
 
-Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
+void Binary::make_space_for_new_section(void) {
+  const uint32_t shift = align(sizeof(pe_section), this->optional_header().file_alignment());
+  VLOG(VDEBUG) << "Making space for a new section header";
+  VLOG(VDEBUG) << "Shifting all sections by " << std::hex << std::showbase << shift;
+
+  // Shift offset of the section content by the size of
+  // a section header aligned on "file alignment"
+  for (Section* section : this->sections_) {
+    section->pointerto_raw_data(section->pointerto_raw_data() + shift);
+  }
+  this->available_sections_space_++;
+}
+
+Section& Binary::add_section(const Section& section, PE_SECTION_TYPES type) {
+
+  if (this->available_sections_space_ < 0) {
+    this->make_space_for_new_section();
+    return this->add_section(section, type);
+  }
 
   // Check if a section of type **type** already exist
   auto&& it_section = std::find_if(
@@ -521,12 +562,12 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
   // Compute new section offset
   uint64_t new_section_offset = align(std::accumulate(
       std::begin(this->sections_),
-      std::end(this->sections_), this->get_sizeof_headers(),
+      std::end(this->sections_), this->sizeof_headers(),
       [] (uint64_t offset, const Section* s) {
         return std::max<uint64_t>(s->pointerto_raw_data() + s->sizeof_raw_data(), offset);
       }), this->optional_header().file_alignment());
 
-  LOG(DEBUG) << "New section offset: 0x" << std::hex << new_section_offset;
+  VLOG(VDEBUG) << "New section offset: 0x" << std::hex << new_section_offset;
 
 
   // Compute new section Virtual address
@@ -537,7 +578,7 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
         return std::max<uint64_t>(s->virtual_address() + s->virtual_size(), va);
       }), this->optional_header().section_alignment());
 
-  LOG(DEBUG) << "New section va: 0x" << std::hex << new_section_va;
+  VLOG(VDEBUG) << "New section va: 0x" << std::hex << new_section_va;
 
   new_section->add_type(type);
 
@@ -557,7 +598,7 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
     new_section->virtual_size(virtual_size);
   }
 
-  if (new_section->is_type(SECTION_TYPES::TEXT)) {
+  if (new_section->is_type(PE_SECTION_TYPES::TEXT)) {
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_CNT_CODE);
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_MEM_EXECUTE);
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_MEM_READ);
@@ -565,7 +606,7 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
     this->optional_header().sizeof_code(new_section->sizeof_raw_data());
   }
 
-  if (new_section->is_type(SECTION_TYPES::DATA)) {
+  if (new_section->is_type(PE_SECTION_TYPES::DATA)) {
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_CNT_INITIALIZED_DATA);
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_MEM_READ);
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_MEM_WRITE);
@@ -577,7 +618,7 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
   }
 
 
-  if (type == SECTION_TYPES::IMPORT) {
+  if (type == PE_SECTION_TYPES::IMPORT) {
 
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_MEM_READ);
     new_section->add_characteristic(SECTION_CHARACTERISTICS::IMAGE_SCN_MEM_EXECUTE);
@@ -590,19 +631,19 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
     this->data_directory(DATA_DIRECTORY::IAT).size(0);
   }
 
-  if (type == SECTION_TYPES::RELOCATION) {
+  if (type == PE_SECTION_TYPES::RELOCATION) {
     this->data_directory(DATA_DIRECTORY::BASE_RELOCATION_TABLE).RVA(new_section->virtual_address());
-    this->data_directory(DATA_DIRECTORY::BASE_RELOCATION_TABLE).size(new_section->sizeof_raw_data());
+    this->data_directory(DATA_DIRECTORY::BASE_RELOCATION_TABLE).size(new_section->virtual_size());
     this->data_directory(DATA_DIRECTORY::BASE_RELOCATION_TABLE).section_ = new_section;
   }
 
-  if (type == SECTION_TYPES::RESOURCE) {
+  if (type == PE_SECTION_TYPES::RESOURCE) {
     this->data_directory(DATA_DIRECTORY::RESOURCE_TABLE).RVA(new_section->virtual_address());
     this->data_directory(DATA_DIRECTORY::RESOURCE_TABLE).size(new_section->size());
     this->data_directory(DATA_DIRECTORY::RESOURCE_TABLE).section_ = new_section;
   }
 
-  if (type == SECTION_TYPES::TLS) {
+  if (type == PE_SECTION_TYPES::TLS) {
     this->data_directory(DATA_DIRECTORY::TLS_TABLE).RVA(new_section->virtual_address());
     this->data_directory(DATA_DIRECTORY::TLS_TABLE).size(new_section->size());
     this->data_directory(DATA_DIRECTORY::TLS_TABLE).section_ = new_section;
@@ -612,14 +653,15 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
   if (this->sections_.size() >= std::numeric_limits<uint16_t>::max()) {
     throw pe_error("Binary reachs its maximum number of sections");
   }
+
+  this->available_sections_space_--;
   this->sections_.push_back(new_section);
 
   // Update headers
   this->header().numberof_sections(static_cast<uint16_t>(this->sections_.size()));
 
-  this->optional_header().sizeof_image(this->get_virtual_size());
-  this->optional_header().sizeof_headers(this->get_sizeof_headers());
-
+  this->optional_header().sizeof_image(this->virtual_size());
+  this->optional_header().sizeof_headers(this->sizeof_headers());
   return *(this->sections_.back());
 }
 
@@ -631,17 +673,19 @@ Section& Binary::add_section(const Section& section, SECTION_TYPES type) {
 //////////////////////////////////
 
 it_relocations Binary::relocations(void) {
-  return it_relocations{this->relocations_};
+  return this->relocations_;
 }
 
 
 it_const_relocations Binary::relocations(void) const {
-  return it_const_relocations{this->relocations_};
+  return this->relocations_;
 }
 
 
-void Binary::add_relocation(const Relocation& relocation) {
-  this->relocations_.push_back(relocation);
+Relocation& Binary::add_relocation(const Relocation& relocation) {
+  Relocation* newone = new Relocation{relocation};
+  this->relocations_.push_back(newone);
+  return *newone;
 }
 
 
@@ -651,7 +695,21 @@ void Binary::add_relocation(const Relocation& relocation) {
 
 
 void Binary::remove_all_relocations(void) {
+  for (Relocation* r : this->relocations_) {
+    delete r;
+  }
   this->relocations_.clear();
+}
+
+
+LIEF::relocations_t Binary::get_abstract_relocations(void) {
+  LIEF::relocations_t abstract_relocs;
+  for (Relocation& relocation : this->relocations()) {
+    for (RelocationEntry& entry : relocation.entries()) {
+      abstract_relocs.push_back(&entry);
+    }
+  }
+  return abstract_relocs;
 }
 
 // Imports
@@ -709,7 +767,8 @@ uint32_t Binary::predict_function_rva(const std::string& library, const std::str
       });
 
   if (it_import == std::end(this->imports_)) {
-    throw not_found("Unable to find library '" + library + "'");
+    LOG(ERROR) << "Unable to find library '" << library << "'";
+    return 0;
   }
 
   it_const_import_entries entries = it_import->entries();
@@ -724,11 +783,13 @@ uint32_t Binary::predict_function_rva(const std::string& library, const std::str
       });
 
   if (nb_functions == 0) {
-    throw not_found("Unable to find the function '" + function + "' in '" + library + "'.");
+    LOG(ERROR) << "Unable to find the function '" << function << "' in '" << library + "'.";
+    return 0;
   }
 
   if (nb_functions > 1) {
-    throw not_supported("'" + function + "' is defined " + std::to_string(nb_functions) + " in '" + library + "'.");
+    LOG(ERROR) << "'" << function << "' is defined " << std::to_string(nb_functions) << " in '" << library << "'.";
+    return 0;
   }
 
   uint32_t import_table_size = static_cast<uint32_t>((this->imports().size() + 1) * sizeof(pe_import)); // +1 for the null entry
@@ -820,11 +881,7 @@ Export& Binary::get_export(void) {
 
 
 const Export& Binary::get_export(void) const {
-  if (this->has_exports()) {
-    return this->export_;
-  } else {
-    throw not_found("The binary doesn't have exports");
-  }
+  return this->export_;
 }
 
 /////////////////////////////////////
@@ -834,23 +891,21 @@ const Export& Binary::get_export(void) const {
 /////////////////////////////////////
 
 void Binary::set_resources(const ResourceDirectory& resource) {
-  // TODO: DELETE !!!!!!!!!
   delete this->resources_;
   this->resources_ = new ResourceDirectory{resource};
 }
 
 
 void Binary::set_resources(const ResourceData& resource) {
-  // TODO: DELETE !!!!!!!!!
   delete this->resources_;
   this->resources_ = new ResourceData{resource};
 }
 
-ResourceNode& Binary::get_resources(void) {
-  return const_cast<ResourceNode&>(static_cast<const Binary*>(this)->get_resources());
+ResourceNode& Binary::resources(void) {
+  return const_cast<ResourceNode&>(static_cast<const Binary*>(this)->resources());
 }
 
-const ResourceNode& Binary::get_resources(void) const {
+const ResourceNode& Binary::resources(void) const {
   if (this->resources_ != nullptr) {
     return *this->resources_;
   } else {
@@ -873,12 +928,12 @@ it_const_data_directories Binary::data_directories(void) const {
 }
 
 
-Debug& Binary::get_debug(void) {
-  return const_cast<Debug&>(static_cast<const Binary*>(this)->get_debug());
+Debug& Binary::debug(void) {
+  return const_cast<Debug&>(static_cast<const Binary*>(this)->debug());
 }
 
 
-const Debug& Binary::get_debug(void) const {
+const Debug& Binary::debug(void) const {
   return this->debug_;
 }
 
@@ -889,9 +944,6 @@ const Debug& Binary::get_debug(void) const {
 /////////////////////
 
 const Signature& Binary::signature(void) const {
-  if (not this->has_signature()) {
-    throw not_found("Signature not found");
-  }
   return this->signature_;
 }
 
@@ -987,7 +1039,7 @@ void Binary::hook_function(const std::string& function, uint64_t address) {
     }
   }
 
-  throw not_found("Unable to find library associated with function '" + function + "'");
+  LOG(WARNING) << "Unable to find library associated with function '" << function << "'";
 }
 
 
@@ -1001,44 +1053,67 @@ uint64_t Binary::entrypoint(void) const {
   return this->optional_header().imagebase() + this->optional_header().addressof_entrypoint();
 }
 
-void Binary::patch_address(uint64_t address, const std::vector<uint8_t>& patch_value) {
+void Binary::patch_address(uint64_t address, const std::vector<uint8_t>& patch_value, LIEF::Binary::VA_TYPES addr_type) {
+  uint64_t rva = address;
+
+  if (addr_type == LIEF::Binary::VA_TYPES::VA or addr_type == LIEF::Binary::VA_TYPES::AUTO) {
+    const int64_t delta = address - this->optional_header().imagebase();
+
+    if (delta > 0 or addr_type == LIEF::Binary::VA_TYPES::VA) {
+      rva -= this->optional_header().imagebase();
+    }
+  }
+
   // Find the section associated with the virtual address
-  Section& section_topatch = this->section_from_rva(address);
-  const uint64_t offset = address - section_topatch.virtual_address();
-  std::vector<uint8_t> content = section_topatch.content();
+  Section& section_topatch = this->section_from_rva(rva);
+  const uint64_t offset = rva - section_topatch.virtual_address();
+  std::vector<uint8_t>& content = section_topatch.content_ref();
   std::copy(
       std::begin(patch_value),
       std::end(patch_value),
       content.data() + offset);
-  section_topatch.content(content);
 
 }
 
-void Binary::patch_address(uint64_t address, uint64_t patch_value, size_t size) {
+void Binary::patch_address(uint64_t address, uint64_t patch_value, size_t size, LIEF::Binary::VA_TYPES addr_type) {
   if (size > sizeof(patch_value)) {
-    throw std::runtime_error("Invalid size (" + std::to_string(size) + ")");
+    LOG(ERROR) << "Invalid size (" << std::to_string(size) << ")";
+    return;
   }
 
-  Section& section_topatch = this->section_from_rva(address);
-  const uint64_t offset = address - section_topatch.virtual_address();
-  std::vector<uint8_t> content = section_topatch.content();
+  uint64_t rva = address;
+
+  if (addr_type == LIEF::Binary::VA_TYPES::VA or addr_type == LIEF::Binary::VA_TYPES::AUTO) {
+    const int64_t delta = address - this->optional_header().imagebase();
+
+    if (delta > 0 or addr_type == LIEF::Binary::VA_TYPES::VA) {
+      rva -= this->optional_header().imagebase();
+    }
+  }
+
+  Section& section_topatch = this->section_from_rva(rva);
+  const uint64_t offset = rva - section_topatch.virtual_address();
+  std::vector<uint8_t>& content = section_topatch.content_ref();
 
   std::copy(
       reinterpret_cast<uint8_t*>(&patch_value),
       reinterpret_cast<uint8_t*>(&patch_value) + size,
       content.data() + offset);
-  section_topatch.content(content);
 
 }
 
-std::vector<uint8_t> Binary::get_content_from_virtual_address(uint64_t virtual_address, uint64_t size) const {
+std::vector<uint8_t> Binary::get_content_from_virtual_address(uint64_t virtual_address, uint64_t size, LIEF::Binary::VA_TYPES addr_type) const {
   uint64_t rva = virtual_address;
-  const int64_t delta = virtual_address - this->optional_header().imagebase();
-  if (delta > 0) {
-    rva -= this->optional_header().imagebase();
+
+  if (addr_type == LIEF::Binary::VA_TYPES::VA or addr_type == LIEF::Binary::VA_TYPES::AUTO) {
+    const int64_t delta = virtual_address - this->optional_header().imagebase();
+
+    if (delta > 0 or addr_type == LIEF::Binary::VA_TYPES::VA) {
+      rva -= this->optional_header().imagebase();
+    }
   }
   const Section& section = this->section_from_rva(rva);
-  const std::vector<uint8_t>& content = section.content();
+  std::vector<uint8_t> content = section.content();
   const uint64_t offset = rva - section.virtual_address();
   uint64_t checked_size = size;
   if ((offset + checked_size) > content.size()) {
@@ -1047,6 +1122,14 @@ std::vector<uint8_t> Binary::get_content_from_virtual_address(uint64_t virtual_a
 
   return {content.data() + offset, content.data() + offset + checked_size};
 
+}
+
+bool Binary::is_pie(void) const {
+  return this->optional_header().has(DLL_CHARACTERISTICS::IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE);
+}
+
+bool Binary::has_nx(void) const {
+  return this->optional_header().has(DLL_CHARACTERISTICS::IMAGE_DLL_CHARACTERISTICS_NX_COMPAT);
 }
 
 // Overlay
@@ -1083,9 +1166,6 @@ RichHeader& Binary::rich_header(void) {
 }
 
 const RichHeader& Binary::rich_header(void) const {
-  if (not this->has_rich_header()) {
-    throw not_found("Rich Header not found");
-  }
   return this->rich_header_;
 }
 
@@ -1097,14 +1177,14 @@ void Binary::rich_header(const RichHeader& rich_header) {
 // Resource manager
 // ===============
 
-ResourcesManager Binary::get_resources_manager(void) {
+ResourcesManager Binary::resources_manager(void) {
   if (this->resources_ == nullptr or not this->has_resources()) {
     throw not_found("There is no resources in the binary");
   }
   return ResourcesManager{this->resources_};
 }
 
-const ResourcesManager Binary::get_resources_manager(void) const {
+const ResourcesManager Binary::resources_manager(void) const {
   if (this->resources_ == nullptr or not this->has_resources()) {
     throw not_found("There is no resources in the binary");
   }
@@ -1113,51 +1193,7 @@ const ResourcesManager Binary::get_resources_manager(void) const {
 
 
 void Binary::accept(Visitor& visitor) const {
-  visitor(this->dos_header());
-  visitor(this->header());
-  visitor(this->optional_header());
-
-  for (const DataDirectory& data_directory : this->data_directories()) {
-    visitor(data_directory);
-  }
-
-  for (const Section& section : this->get_sections()) {
-    visitor(section);
-  }
-
-  if (this->has_imports()) {
-    for (const Import& import : this->imports()) {
-      visitor(import);
-    }
-  }
-
-  if (this->has_relocations()) {
-    for (const Relocation& relocation : this->relocations()) {
-      visitor(relocation);
-    }
-  }
-
-  if (this->has_debug()) {
-    visitor(this->get_debug());
-  }
-
-
-  if (this->has_exports()) {
-    visitor(this->get_export());
-  }
-
-  for (const Symbol& symbol : this->symbols()) {
-    visitor(symbol);
-  }
-
-  if (this->has_tls()) {
-    visitor(this->tls());
-  }
-
-  if (this->has_rich_header()) {
-    visitor(this->rich_header());
-  }
-
+  visitor.visit(*this);
 }
 
 
@@ -1215,7 +1251,7 @@ std::ostream& Binary::print(std::ostream& os) const {
   os << "Sections" << std::endl;
   os << "========" << std::endl;
 
-  for (const Section& section : this->get_sections()) {
+  for (const Section& section : this->sections()) {
     os << section << std::endl;;
   }
   os << std::endl;
@@ -1250,7 +1286,7 @@ std::ostream& Binary::print(std::ostream& os) const {
   if (this->has_debug()) {
     os << "Debug" << std::endl;
     os << "=====" << std::endl;
-    os << this->get_debug() << std::endl;
+    os << this->debug() << std::endl;
     os << std::endl;
   }
 
@@ -1276,7 +1312,7 @@ std::ostream& Binary::print(std::ostream& os) const {
   if (this->has_resources()) {
     os << "Resources" << std::endl;
     os << "=========" << std::endl;
-    os << this->get_resources_manager() << std::endl;
+    os << this->resources_manager() << std::endl;
     os << std::endl;
   }
 
@@ -1287,6 +1323,17 @@ std::ostream& Binary::print(std::ostream& os) const {
     os << symbol << std::endl;;
   }
   os << std::endl;
+
+
+  if (this->has_configuration()) {
+    os << "Load Configuration" << std::endl;
+    os << "==================" << std::endl;
+
+    os << this->load_configuration();
+
+    os << std::endl;
+  }
+
 
 
   return os;

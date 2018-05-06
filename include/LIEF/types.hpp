@@ -17,4 +17,13 @@
 #define LIEF_TYPES_H_
 #include <stdint.h>
 #include <inttypes.h>
+#include <cstddef>
+
+#if defined(_MSC_VER)
+#define ALIGNED_(x) __declspec(align(x))
+#elif defined(__GNUC__)
+#define ALIGNED_(x) __attribute__ ((__aligned__(x), __packed__))
+#endif
+
+
 #endif

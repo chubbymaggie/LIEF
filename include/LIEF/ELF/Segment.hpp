@@ -21,7 +21,7 @@
 #include <iostream>
 #include <memory>
 
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 #include "LIEF/visibility.h"
 
 #include "LIEF/ELF/type_traits.hpp"
@@ -35,7 +35,7 @@ class Parser;
 class Binary;
 
 //! @brief Class which represent segments
-class DLL_PUBLIC Segment : public Visitable {
+class LIEF_API Segment : public Object {
 
   friend class Parser;
   friend class Section;
@@ -54,20 +54,24 @@ class DLL_PUBLIC Segment : public Visitable {
     void swap(Segment& other);
 
     SEGMENT_TYPES type(void) const;
-    uint32_t flag(void) const;
+    ELF_SEGMENT_FLAGS flags(void) const;
     uint64_t file_offset(void) const;
     uint64_t virtual_address(void) const;
     uint64_t physical_address(void) const;
     uint64_t physical_size(void) const;
     uint64_t virtual_size(void) const;
     uint64_t alignment(void) const;
-    bool has_flag(SEGMENT_FLAGS flag) const;
     std::vector<uint8_t> content(void) const;
 
+    bool has(ELF_SEGMENT_FLAGS flag) const;
+    bool has(const Section& section) const;
+    bool has(const std::string& section_name) const;
+
+    void add(ELF_SEGMENT_FLAGS c);
+    void remove(ELF_SEGMENT_FLAGS c);
+
     void type(SEGMENT_TYPES type);
-    void flag(uint32_t flags);
-    void add_flag(SEGMENT_FLAGS flag);
-    void remove_flag(SEGMENT_FLAGS flag);
+    void flags(ELF_SEGMENT_FLAGS flags);
     void clear_flags(void);
     void file_offset(uint64_t fileOffset);
     void virtual_address(uint64_t virtualAddress);
@@ -76,20 +80,24 @@ class DLL_PUBLIC Segment : public Visitable {
     void virtual_size(uint64_t virtualSize);
     void alignment(uint64_t alignment);
     void content(const std::vector<uint8_t>& content);
+    void content(std::vector<uint8_t>&& content);
 
     it_sections       sections(void);
     it_const_sections sections(void) const;
 
     virtual void accept(Visitor& visitor) const override;
 
+    Segment& operator+=(ELF_SEGMENT_FLAGS c);
+    Segment& operator-=(ELF_SEGMENT_FLAGS c);
+
     bool operator==(const Segment& rhs) const;
     bool operator!=(const Segment& rhs) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Segment& segment);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Segment& segment);
 
   private:
     SEGMENT_TYPES         type_;
-    uint32_t              flags_;
+    ELF_SEGMENT_FLAGS     flags_;
     uint64_t              file_offset_;
     uint64_t              virtual_address_;
     uint64_t              physical_address_;

@@ -21,7 +21,7 @@
 
 #include "LIEF/exception.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 
 #include "LIEF/ELF/Symbol.hpp"
 #include "LIEF/ELF/EnumToString.hpp"
@@ -31,7 +31,7 @@ namespace LIEF {
 namespace ELF {
 
 Symbol::Symbol(void) :
-  type_{SYMBOL_TYPES::STT_NOTYPE},
+  type_{ELF_SYMBOL_TYPES::STT_NOTYPE},
   binding_{SYMBOL_BINDINGS::STB_LOCAL},
   other_{0},
   shndx_{0},
@@ -72,7 +72,7 @@ void Symbol::swap(Symbol& other) {
 
 Symbol::Symbol(const Elf32_Sym* header) :
   LIEF::Symbol{},
-  type_{static_cast<SYMBOL_TYPES>(header->st_info & 0x0f)},
+  type_{static_cast<ELF_SYMBOL_TYPES>(header->st_info & 0x0f)},
   binding_{static_cast<SYMBOL_BINDINGS>(header->st_info >> 4)},
   other_{header->st_other},
   shndx_{header->st_shndx},
@@ -83,7 +83,7 @@ Symbol::Symbol(const Elf32_Sym* header) :
 
 Symbol::Symbol(const Elf64_Sym* header) :
   LIEF::Symbol{},
-  type_{static_cast<SYMBOL_TYPES>(header->st_info & 0x0f)},
+  type_{static_cast<ELF_SYMBOL_TYPES>(header->st_info & 0x0f)},
   binding_{static_cast<SYMBOL_BINDINGS>(header->st_info >> 4)},
   other_{header->st_other},
   shndx_{header->st_shndx},
@@ -93,7 +93,7 @@ Symbol::Symbol(const Elf64_Sym* header) :
 {}
 
 
-Symbol::Symbol(std::string name, SYMBOL_TYPES type, SYMBOL_BINDINGS binding,
+Symbol::Symbol(std::string name, ELF_SYMBOL_TYPES type, SYMBOL_BINDINGS binding,
     uint8_t other, uint16_t shndx,
     uint64_t value, uint64_t size) :
   LIEF::Symbol{name},
@@ -107,7 +107,7 @@ Symbol::Symbol(std::string name, SYMBOL_TYPES type, SYMBOL_BINDINGS binding,
 {}
 
 
-SYMBOL_TYPES Symbol::type(void) const {
+ELF_SYMBOL_TYPES Symbol::type(void) const {
   return this->type_;
 }
 
@@ -148,6 +148,11 @@ uint16_t Symbol::shndx(void) const {
 }
 
 
+ELF_SYMBOL_VISIBILITY Symbol::visibility(void) const {
+  return static_cast<ELF_SYMBOL_VISIBILITY>(this->other_);
+}
+
+
 bool Symbol::has_version(void) const {
   return this->symbol_version_ != nullptr;
 }
@@ -165,7 +170,7 @@ SymbolVersion& Symbol::symbol_version(void) {
   return const_cast<SymbolVersion&>(static_cast<const Symbol*>(this)->symbol_version());
 }
 
-void Symbol::type(SYMBOL_TYPES type) {
+void Symbol::type(ELF_SYMBOL_TYPES type) {
   this->type_ = type;
 }
 
@@ -190,10 +195,14 @@ void Symbol::shndx(uint16_t idx) {
   this->shndx_ = idx;
 }
 
+void Symbol::visibility(ELF_SYMBOL_VISIBILITY visibility) {
+  this->other_ = static_cast<uint8_t>(visibility);
+}
+
 
 void Symbol::information(uint8_t info) {
   this->binding_ = static_cast<SYMBOL_BINDINGS>(info >> 4);
-  this->type_    = static_cast<SYMBOL_TYPES>(info & 0x0f);
+  this->type_    = static_cast<ELF_SYMBOL_TYPES>(info & 0x0f);
 }
 
 
@@ -214,9 +223,20 @@ std::string Symbol::demangled_name(void) const {
 }
 
 bool Symbol::is_exported(void) const {
-  return ((this->binding() == SYMBOL_BINDINGS::STB_GLOBAL or
-        this->binding() == SYMBOL_BINDINGS::STB_WEAK) and
-        this->shndx() != SYMBOL_SECTION_INDEX::SHN_UNDEF);
+  bool is_exported = this->shndx() != static_cast<uint16_t>(SYMBOL_SECTION_INDEX::SHN_UNDEF);
+
+  // An export must have an address
+  is_exported = is_exported and this->value() != 0;
+
+  // An export must be bind to GLOBAL or WEAK
+  is_exported = is_exported and (this->binding() == SYMBOL_BINDINGS::STB_GLOBAL or
+                                 this->binding() == SYMBOL_BINDINGS::STB_WEAK);
+
+  // An export must have one of theses types:
+  is_exported = is_exported and (this->type() == ELF_SYMBOL_TYPES::STT_FUNC or
+                                 this->type() == ELF_SYMBOL_TYPES::STT_GNU_IFUNC or
+                                 this->type() == ELF_SYMBOL_TYPES::STT_OBJECT);
+  return is_exported;
 }
 
 void Symbol::set_exported(bool flag) {
@@ -230,7 +250,24 @@ void Symbol::set_exported(bool flag) {
 }
 
 bool Symbol::is_imported(void) const {
-  return this->shndx() == SYMBOL_SECTION_INDEX::SHN_UNDEF;
+  // An import must not be defined in a section
+  bool is_imported = this->shndx() == static_cast<uint16_t>(SYMBOL_SECTION_INDEX::SHN_UNDEF);
+
+  // An import must not have an address
+  is_imported = is_imported and this->value() == 0;
+
+  // its name must not be empty
+  is_imported = is_imported and not this->name().empty();
+
+  // It must have a GLOBAL or WEAK bind
+  is_imported = is_imported and (this->binding() == SYMBOL_BINDINGS::STB_GLOBAL or
+                                 this->binding() == SYMBOL_BINDINGS::STB_WEAK);
+
+  // It must be a FUNC or an OBJECT
+  is_imported = is_imported and (this->type() == ELF_SYMBOL_TYPES::STT_FUNC or
+                                 this->type() == ELF_SYMBOL_TYPES::STT_GNU_IFUNC or
+                                 this->type() == ELF_SYMBOL_TYPES::STT_OBJECT);
+  return is_imported;
 }
 
 void Symbol::set_imported(bool flag) {
@@ -244,20 +281,7 @@ void Symbol::set_imported(bool flag) {
 
 
 void Symbol::accept(Visitor& visitor) const {
-
-  LIEF::Symbol::accept(visitor);
-
-  visitor.visit(this->type());
-  visitor.visit(this->binding());
-  visitor.visit(this->information());
-  visitor.visit(this->other());
-  visitor.visit(this->section_idx());
-  visitor.visit(this->value());
-  visitor.visit(this->size());
-
-  if(this->has_version()) {
-    visitor(this->symbol_version());
-  }
+  visitor.visit(*this);
 }
 
 bool Symbol::operator==(const Symbol& rhs) const {

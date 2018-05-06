@@ -25,24 +25,43 @@
 
 #include "LIEF/MachO/LoadCommand.hpp"
 
+#include "LIEF/MachO/ExportInfo.hpp"
+#include "LIEF/MachO/BindingInfo.hpp"
+
 
 namespace LIEF {
 namespace MachO {
-class DLL_PUBLIC Symbol : public LIEF::Symbol {
+
+class BinaryParser;
+
+class LIEF_API Symbol : public LIEF::Symbol {
+
+  friend class BinaryParser;
+
   public:
     Symbol(void);
 
     Symbol(const nlist_32 *cmd);
     Symbol(const nlist_64 *cmd);
 
-    Symbol& operator=(const Symbol& copy);
-    Symbol(const Symbol& copy);
+    Symbol& operator=(Symbol other);
+    Symbol(const Symbol& other);
+    void swap(Symbol& other);
+
     virtual ~Symbol(void);
 
     uint8_t  type(void) const;
     uint8_t  numberof_sections(void) const;
     uint16_t description(void) const;
     uint64_t value(void) const;
+
+    bool has_export_info(void) const;
+    const ExportInfo& export_info(void) const;
+    ExportInfo& export_info(void);
+
+    bool has_binding_info(void) const;
+    const BindingInfo& binding_info(void) const;
+    BindingInfo& binding_info(void);
 
     std::string demangled_name(void) const;
 
@@ -53,18 +72,25 @@ class DLL_PUBLIC Symbol : public LIEF::Symbol {
 
     bool is_external(void) const;
 
+    SYMBOL_ORIGINS origin(void) const;
+
     virtual void accept(Visitor& visitor) const override;
 
     bool operator==(const Symbol& rhs) const;
     bool operator!=(const Symbol& rhs) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Symbol& symbol);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Symbol& symbol);
 
   private:
     uint8_t  type_;
     uint8_t  numberof_sections_;
     uint16_t description_;
     uint64_t value_;
+
+    BindingInfo* binding_info_;
+    ExportInfo* export_info_;
+
+    SYMBOL_ORIGINS origin_;
 };
 
 }

@@ -1,5 +1,9 @@
+include(ProcessorCount)
 find_package(Git REQUIRED)
 enable_testing()
+
+option(LIEF_TEST_SHARED "Test LIEF using the SHARED library" ON)
+option(LIEF_TEST_STATIC "Test LIEF using the STATIC library" ON)
 
 # Tests samples
 # =============
@@ -23,7 +27,6 @@ message(STATUS "Samples directory: ${LIEF_SAMPLES_DIRECTORY}")
 
 # Tests options
 # =============
-option(LIEF_FUZZING "Fuzz LIEF" OFF)
 
 if (NOT LIEF_ELF OR NOT LIEF_PE OR NOT LIEF_MACHO)
   message(FATAL_ERROR "Tests require all LIEF's modules activated" )
@@ -42,7 +45,7 @@ configure_file(
 if (MSVC)
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/utils.py.in"
-    "${PROJECT_BINARY_DIR}/api/python/release/utils.py"
+    "${PROJECT_BINARY_DIR}/api/python/utils.py"
     @ONLY)
 else()
   configure_file(
@@ -80,12 +83,14 @@ set(CXX_FLAGS "/MT /EHsc")
   set(YAMLCPP_CMAKE_ARGS ${YAMLCPP_CMAKE_ARGS} -DCMAKE_CXX_FLAGS=${CXX_FLAGS} )
 endif()
 
-set(YAMLCPP_GIT_URL "https://github.com/jbeder/yaml-cpp.git" CACHE STRING "URL to the YAMLCPP repo")
+set(YAMLCPP_VERSION beb44b872c07c74556314e730c6f20a00b32e8e5)
+set(YAMLCPP_SHA256 SHA256=e1a84ea68db23987b6746ce5c42e73d9870990ba1eea6e9c5c8d10852bd61582)
+set(YAMLCPP_URL "${THIRD_PARTY_DIRECTORY}/yaml-cpp-${YAMLCPP_VERSION}.zip" CACHE STRING "URL to the YAMLCPP repo")
 
 ExternalProject_Add(YAMLCPP
   PREFIX         ${YAMLCPP_PREFIX}
-  GIT_REPOSITORY ${YAMLCPP_GIT_URL}
-  UPDATE_COMMAND ${GIT_EXECUTABLE} pull
+  URL            ${YAMLCPP_URL}
+  URL_HASH       ${YAMLCPP_SHA256}
   INSTALL_DIR    ${YAMLCPP_INSTALL_DIR}
   CMAKE_ARGS     ${YAMLCPP_CMAKE_ARGS}
   LOG_DOWNLOAD ON
@@ -101,14 +106,15 @@ endif()
 # Catch
 # =====
 
-set(CATCH_PREFIX  "${CMAKE_CURRENT_BINARY_DIR}/catch")
-set(CATCH_GIT_URL https://github.com/philsquared/Catch.git CACHE STRING "URL to the Catch repo")
+set(CATCH_VERSION 1.10.0)
+set(CATCH_SHA256 SHA256=a24b2c7bfa15bd117bf1a6b2cfe68a656f786d232c30eee7a0a08324ecc4fa88)
+set(CATCH_URL "${THIRD_PARTY_DIRECTORY}/Catch-${CATCH_VERSION}.zip" CACHE STRING "URL to the Catch repo")
 
 ExternalProject_Add(catch
     PREFIX         ${CATCH_PREFIX}
-    GIT_REPOSITORY ${CATCH_GIT_URL}
+    URL            ${CATCH_URL}
+    URL_HASH       ${CATCH_SHA256}
     TIMEOUT 10
-    UPDATE_COMMAND ${GIT_EXECUTABLE} pull
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
     INSTALL_COMMAND ""
@@ -122,14 +128,16 @@ set(CATCH_INCLUDE_DIR "${source_dir}/include" CACHE INTERNAL "Path to include fo
 # ======
 set(DIRENT_INCLUDE_DIR "")
 if (WIN32)
-  set(DIRENT_PREFIX  "${CMAKE_CURRENT_BINARY_DIR}/dirent")
-  set(DIRENT_GIT_URL https://github.com/tronkko/dirent.git CACHE STRING "URL to the dirent repo")
+
+  set(DIRENT_VERSION 1.22)
+  set(DIRENT_SHA256 SHA256=3e4ad607ac53a502e184ee48a177790855127ebaadf54faa0e2fd1e77a8881bf)
+  set(DIRENT_URL "${THIRD_PARTY_DIRECTORY}/dirent-${DIRENT_VERSION}.zip" CACHE STRING "URL to the Dirent package")
 
   ExternalProject_Add(dirent
       PREFIX         ${DIRENT_PREFIX}
-      GIT_REPOSITORY ${DIRENT_GIT_URL}
+      URL            ${DIRENT_URL}
+      URL_HASH       ${DIRENT_SHA256}
       TIMEOUT 10
-      UPDATE_COMMAND ${GIT_EXECUTABLE} pull
       CONFIGURE_COMMAND ""
       BUILD_COMMAND ""
       INSTALL_COMMAND ""
@@ -179,13 +187,17 @@ endif()
 # Fuzzing
 # =======
 if(UNIX AND NOT APPLE)
-  set(MELKOR_REPO "https://github.com/IOActive/Melkor_ELF_Fuzzer.git")
+
+  set(MELKOR_VERSION master)
+  set(MELKOR_SHA256 SHA256=8d8115117e87ee1fad81cb09e53524f7bee9a4803632ae3b0b1cfbb66c86a6f4)
+  set(MELKOR_URL "${THIRD_PARTY_DIRECTORY}/Melkor_ELF_Fuzzer-${MELKOR_VERSION}.zip" CACHE STRING "URL to the Melkor package")
 
   set(MELKOR_PREFIX      "${CMAKE_CURRENT_BINARY_DIR}/Melkor")
   set(MELKOR_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/Melkor")
   ExternalProject_Add(MELKOR
    PREFIX            ${MELKOR_PREFIX}
-   GIT_REPOSITORY    ${MELKOR_REPO}
+   URL               ${MELKOR_URL}
+   URL_HASH          ${MELKOR_SHA256}
    INSTALL_DIR       ${MELKOR_INSTALL_DIR}
    UPDATE_COMMAND    ""
    CONFIGURE_COMMAND ""
@@ -253,17 +265,7 @@ endmacro()
 if (LIEF_PYTHON_API)
   set(PYTHON_TESTS_ENABLED OFF)
   get_target_property(PYTHON_VERSION pyLIEF PYTHON_VERSION)
-  if ((${PYTHON_VERSION} VERSION_GREATER "3") OR (${PYTHON_VERSION} VERSION_EQUAL "3"))
-
-    find_package(PythonInterp 3)
-    if (NOT PythonInterp_FOUND)
-      string(REPLACE "m" "" PYTHON_VERSION_CLEAN ${PYTHON_VERSION})
-      set(PYTHON_EXECUTABLE "/usr/bin/python${PYTHON_VERSION_CLEAN}")
-    endif()
-
-  else()
-    find_package(PythonInterp 2 REQUIRED)
-  endif()
+  find_package(PythonInterp ${PYTHON_VERSION})
 
   message(STATUS "Python executable: ${PYTHON_EXECUTABLE}")
 
@@ -321,11 +323,37 @@ if (LIEF_PYTHON_API)
 endif()
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/elf")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/vdex")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/art")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/dex")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/oat")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/pe")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/macho")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/api")
 
 # /!\ Bad Hack /!\
-add_dependencies(test_iterators lief_samples)
+add_dependencies(LIB_LIEF_STATIC lief_samples)
+add_dependencies(LIB_LIEF_SHARED lief_samples)
+ProcessorCount(N)
+if(N EQUAL 0)
+  set(N 1)
+endif()
 
-add_custom_target(check-lief COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-  DEPENDS lief_samples)
+
+if (CMAKE_CONFIGURATION_TYPES)
+    add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
+        --force-new-ctest-process --output-on-failure
+        --build-config "$<CONFIGURATION>")
+else()
+    add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND}
+        --force-new-ctest-process --output-on-failure)
+endif()
+if (CMAKE_CONFIGURATION_TYPES)
+  add_custom_target(check-lief
+    COMMAND ${CMAKE_CTEST_COMMAND} --parallel 1 --output-on-failure --build-config "$<CONFIGURATION>"
+    DEPENDS lief_samples)
+else()
+  add_custom_target(check-lief
+    COMMAND ${CMAKE_CTEST_COMMAND} --parallel 1 --output-on-failure
+    DEPENDS lief_samples)
+endif()

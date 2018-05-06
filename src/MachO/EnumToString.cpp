@@ -15,14 +15,14 @@
  */
 #include "LIEF/MachO/Structures.hpp"
 #include "LIEF/MachO/EnumToString.hpp"
-#include <map>
+#include "frozen.hpp"
 
 namespace LIEF {
 namespace MachO {
 
 
 const char* to_string(MACHO_TYPES e) {
-  const std::map<MACHO_TYPES, const char*> enumStrings {
+  CONST_MAP(MACHO_TYPES, const char*, 6) enumStrings {
       { MACHO_TYPES::MH_MAGIC,    "MAGIC"},
       { MACHO_TYPES::MH_CIGAM,    "CIGAM"},
       { MACHO_TYPES::MH_MAGIC_64, "MAGIC_64"},
@@ -36,7 +36,7 @@ const char* to_string(MACHO_TYPES e) {
 
 
 const char* to_string(FILE_TYPES e) {
-  const std::map<FILE_TYPES, const char*> enumStrings {
+  CONST_MAP(FILE_TYPES, const char*, 11) enumStrings {
       { FILE_TYPES::MH_OBJECT,        "OBJECT"},
       { FILE_TYPES::MH_EXECUTE,       "EXECUTE"},
       { FILE_TYPES::MH_FVMLIB,        "FVMLIB"},
@@ -54,7 +54,7 @@ const char* to_string(FILE_TYPES e) {
 }
 
 const char* to_string(LOAD_COMMAND_TYPES e) {
-  const std::map<LOAD_COMMAND_TYPES, const char*> enumStrings {
+  CONST_MAP(LOAD_COMMAND_TYPES, const char*, 49) enumStrings {
       { LOAD_COMMAND_TYPES::LC_SEGMENT,                  "SEGMENT"},
       { LOAD_COMMAND_TYPES::LC_SYMTAB,                   "SYMTAB"},
       { LOAD_COMMAND_TYPES::LC_SYMSEG,                   "SYMSEG"},
@@ -110,7 +110,7 @@ const char* to_string(LOAD_COMMAND_TYPES e) {
 }
 
 const char* to_string(CPU_TYPES e) {
-  const std::map<CPU_TYPES, const char*> enumStrings {
+  CONST_MAP(CPU_TYPES, const char*, 10) enumStrings {
       { CPU_TYPES::CPU_TYPE_ANY,       "ANY"},
       { CPU_TYPES::CPU_TYPE_X86,       "x86"},
       { CPU_TYPES::CPU_TYPE_I386,      "i386"},
@@ -128,7 +128,7 @@ const char* to_string(CPU_TYPES e) {
 }
 
 const char* to_string(HEADER_FLAGS e) {
-  const std::map<HEADER_FLAGS, const char*> enumStrings {
+  CONST_MAP(HEADER_FLAGS, const char*, 26) enumStrings {
       { HEADER_FLAGS::MH_NOUNDEFS                ,"NOUNDEFS"},
       { HEADER_FLAGS::MH_INCRLINK                ,"INCRLINK"},
       { HEADER_FLAGS::MH_DYLDLINK                ,"DYLDLINK"},
@@ -160,66 +160,66 @@ const char* to_string(HEADER_FLAGS e) {
   return it == enumStrings.end() ? "Out of range" : it->second;
 }
 
-const char* to_string(SECTION_TYPES e) {
-  const std::map<SECTION_TYPES, const char*> enumStrings {
-      { SECTION_TYPES::S_REGULAR,                             "REGULAR"},
-      { SECTION_TYPES::S_ZEROFILL,                            "ZEROFILL"},
-      { SECTION_TYPES::S_CSTRING_LITERALS,                    "CSTRING_LITERALS"},
-      { SECTION_TYPES::S_4BYTE_LITERALS,                      "S_4BYTE_LITERALS"},
-      { SECTION_TYPES::S_8BYTE_LITERALS,                      "S_8BYTE_LITERALS"},
-      { SECTION_TYPES::S_LITERAL_POINTERS,                    "LITERAL_POINTERS"},
-      { SECTION_TYPES::S_NON_LAZY_SYMBOL_POINTERS,            "NON_LAZY_SYMBOL_POINTERS"},
-      { SECTION_TYPES::S_LAZY_SYMBOL_POINTERS,                "LAZY_SYMBOL_POINTERS"},
-      { SECTION_TYPES::S_SYMBOL_STUBS,                        "SYMBOL_STUBS"},
-      { SECTION_TYPES::S_MOD_INIT_FUNC_POINTERS,              "MOD_INIT_FUNC_POINTERS"},
-      { SECTION_TYPES::S_MOD_TERM_FUNC_POINTERS,              "MOD_TERM_FUNC_POINTERS"},
-      { SECTION_TYPES::S_COALESCED,                           "COALESCED"},
-      { SECTION_TYPES::S_GB_ZEROFILL,                         "GB_ZEROFILL"},
-      { SECTION_TYPES::S_INTERPOSING,                         "INTERPOSING"},
-      { SECTION_TYPES::S_16BYTE_LITERALS,                     "S_16BYTE_LITERALS"},
-      { SECTION_TYPES::S_DTRACE_DOF,                          "DTRACE_DOF"},
-      { SECTION_TYPES::S_LAZY_DYLIB_SYMBOL_POINTERS,          "LAZY_DYLIB_SYMBOL_POINTERS"},
-      { SECTION_TYPES::S_THREAD_LOCAL_REGULAR,                "THREAD_LOCAL_REGULAR"},
-      { SECTION_TYPES::S_THREAD_LOCAL_ZEROFILL,               "THREAD_LOCAL_ZEROFILL"},
-      { SECTION_TYPES::S_THREAD_LOCAL_VARIABLES,              "THREAD_LOCAL_VARIABLES"},
-      { SECTION_TYPES::S_THREAD_LOCAL_VARIABLE_POINTERS,      "THREAD_LOCAL_VARIABLE_POINTERS"},
-      { SECTION_TYPES::S_THREAD_LOCAL_INIT_FUNCTION_POINTERS, "THREAD_LOCAL_INIT_FUNCTION_POINTERS"}
+const char* to_string(MACHO_SECTION_TYPES e) {
+  CONST_MAP(MACHO_SECTION_TYPES, const char*, 22) enumStrings {
+      { MACHO_SECTION_TYPES::S_REGULAR,                             "REGULAR"},
+      { MACHO_SECTION_TYPES::S_ZEROFILL,                            "ZEROFILL"},
+      { MACHO_SECTION_TYPES::S_CSTRING_LITERALS,                    "CSTRING_LITERALS"},
+      { MACHO_SECTION_TYPES::S_4BYTE_LITERALS,                      "S_4BYTE_LITERALS"},
+      { MACHO_SECTION_TYPES::S_8BYTE_LITERALS,                      "S_8BYTE_LITERALS"},
+      { MACHO_SECTION_TYPES::S_LITERAL_POINTERS,                    "LITERAL_POINTERS"},
+      { MACHO_SECTION_TYPES::S_NON_LAZY_SYMBOL_POINTERS,            "NON_LAZY_SYMBOL_POINTERS"},
+      { MACHO_SECTION_TYPES::S_LAZY_SYMBOL_POINTERS,                "LAZY_SYMBOL_POINTERS"},
+      { MACHO_SECTION_TYPES::S_SYMBOL_STUBS,                        "SYMBOL_STUBS"},
+      { MACHO_SECTION_TYPES::S_MOD_INIT_FUNC_POINTERS,              "MOD_INIT_FUNC_POINTERS"},
+      { MACHO_SECTION_TYPES::S_MOD_TERM_FUNC_POINTERS,              "MOD_TERM_FUNC_POINTERS"},
+      { MACHO_SECTION_TYPES::S_COALESCED,                           "COALESCED"},
+      { MACHO_SECTION_TYPES::S_GB_ZEROFILL,                         "GB_ZEROFILL"},
+      { MACHO_SECTION_TYPES::S_INTERPOSING,                         "INTERPOSING"},
+      { MACHO_SECTION_TYPES::S_16BYTE_LITERALS,                     "S_16BYTE_LITERALS"},
+      { MACHO_SECTION_TYPES::S_DTRACE_DOF,                          "DTRACE_DOF"},
+      { MACHO_SECTION_TYPES::S_LAZY_DYLIB_SYMBOL_POINTERS,          "LAZY_DYLIB_SYMBOL_POINTERS"},
+      { MACHO_SECTION_TYPES::S_THREAD_LOCAL_REGULAR,                "THREAD_LOCAL_REGULAR"},
+      { MACHO_SECTION_TYPES::S_THREAD_LOCAL_ZEROFILL,               "THREAD_LOCAL_ZEROFILL"},
+      { MACHO_SECTION_TYPES::S_THREAD_LOCAL_VARIABLES,              "THREAD_LOCAL_VARIABLES"},
+      { MACHO_SECTION_TYPES::S_THREAD_LOCAL_VARIABLE_POINTERS,      "THREAD_LOCAL_VARIABLE_POINTERS"},
+      { MACHO_SECTION_TYPES::S_THREAD_LOCAL_INIT_FUNCTION_POINTERS, "THREAD_LOCAL_INIT_FUNCTION_POINTERS"}
   };
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "Out of range" : it->second;
 }
 
-const char* to_string(SECTION_FLAGS e) {
-  const std::map<SECTION_FLAGS, const char*> enumStrings {
-    { SECTION_FLAGS::S_ATTR_PURE_INSTRUCTIONS,   "PURE_INSTRUCTIONS"},
-    { SECTION_FLAGS::S_ATTR_NO_TOC,              "NO_TOC"},
-    { SECTION_FLAGS::S_ATTR_STRIP_STATIC_SYMS,   "STRIP_STATIC_SYMS"},
-    { SECTION_FLAGS::S_ATTR_NO_DEAD_STRIP,       "NO_DEAD_STRIP"},
-    { SECTION_FLAGS::S_ATTR_LIVE_SUPPORT,        "LIVE_SUPPORT"},
-    { SECTION_FLAGS::S_ATTR_SELF_MODIFYING_CODE, "SELF_MODIFYING_CODE"},
-    { SECTION_FLAGS::S_ATTR_DEBUG,               "DEBUG"},
-    { SECTION_FLAGS::S_ATTR_SOME_INSTRUCTIONS,   "SOME_INSTRUCTIONS"},
-    { SECTION_FLAGS::S_ATTR_EXT_RELOC,           "EXT_RELOC"},
-    { SECTION_FLAGS::S_ATTR_LOC_RELOC,           "LOC_RELOC"}
+const char* to_string(MACHO_SECTION_FLAGS e) {
+  CONST_MAP(MACHO_SECTION_FLAGS, const char*, 10) enumStrings {
+    { MACHO_SECTION_FLAGS::S_ATTR_PURE_INSTRUCTIONS,   "PURE_INSTRUCTIONS"},
+    { MACHO_SECTION_FLAGS::S_ATTR_NO_TOC,              "NO_TOC"},
+    { MACHO_SECTION_FLAGS::S_ATTR_STRIP_STATIC_SYMS,   "STRIP_STATIC_SYMS"},
+    { MACHO_SECTION_FLAGS::S_ATTR_NO_DEAD_STRIP,       "NO_DEAD_STRIP"},
+    { MACHO_SECTION_FLAGS::S_ATTR_LIVE_SUPPORT,        "LIVE_SUPPORT"},
+    { MACHO_SECTION_FLAGS::S_ATTR_SELF_MODIFYING_CODE, "SELF_MODIFYING_CODE"},
+    { MACHO_SECTION_FLAGS::S_ATTR_DEBUG,               "DEBUG"},
+    { MACHO_SECTION_FLAGS::S_ATTR_SOME_INSTRUCTIONS,   "SOME_INSTRUCTIONS"},
+    { MACHO_SECTION_FLAGS::S_ATTR_EXT_RELOC,           "EXT_RELOC"},
+    { MACHO_SECTION_FLAGS::S_ATTR_LOC_RELOC,           "LOC_RELOC"}
   };
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "Out of range" : it->second;
 }
 
 
-const char* to_string(SYMBOL_TYPES e) {
-  const std::map<SYMBOL_TYPES, const char*> enumStrings {
-    { SYMBOL_TYPES::N_STAB, "STAB"},
-    { SYMBOL_TYPES::N_PEXT, "PEXT"},
-    { SYMBOL_TYPES::N_TYPE, "TYPE"},
-    { SYMBOL_TYPES::N_EXT,  "EXT"}
+const char* to_string(MACHO_SYMBOL_TYPES e) {
+  CONST_MAP(MACHO_SYMBOL_TYPES, const char*, 4) enumStrings {
+    { MACHO_SYMBOL_TYPES::N_STAB, "STAB"},
+    { MACHO_SYMBOL_TYPES::N_PEXT, "PEXT"},
+    { MACHO_SYMBOL_TYPES::N_TYPE, "TYPE"},
+    { MACHO_SYMBOL_TYPES::N_EXT,  "EXT"}
   };
   auto   it  = enumStrings.find(e);
   return it == enumStrings.end() ? "Out of range" : it->second;
 }
 
 const char* to_string(N_LIST_TYPES e) {
-  const std::map<N_LIST_TYPES, const char*> enumStrings {
+  CONST_MAP(N_LIST_TYPES, const char*, 5) enumStrings {
     { N_LIST_TYPES::N_UNDF, "UNDF"},
     { N_LIST_TYPES::N_ABS,  "ABS"},
     { N_LIST_TYPES::N_SECT, "SECT"},
@@ -231,7 +231,7 @@ const char* to_string(N_LIST_TYPES e) {
 }
 
 const char* to_string(SYMBOL_DESCRIPTIONS e) {
-  const std::map<SYMBOL_DESCRIPTIONS, const char*> enumStrings {
+  CONST_MAP(SYMBOL_DESCRIPTIONS, const char*,  17) enumStrings {
     { SYMBOL_DESCRIPTIONS::REFERENCE_FLAG_UNDEFINED_NON_LAZY,         "FLAG_UNDEFINED_NON_LAZY"},
     { SYMBOL_DESCRIPTIONS::REFERENCE_FLAG_UNDEFINED_LAZY,             "FLAG_UNDEFINED_LAZY"},
     { SYMBOL_DESCRIPTIONS::REFERENCE_FLAG_DEFINED,                    "FLAG_DEFINED"},
@@ -255,7 +255,7 @@ const char* to_string(SYMBOL_DESCRIPTIONS e) {
 }
 
 const char* to_string(X86_RELOCATION e) {
-  const std::map<X86_RELOCATION, const char*> enumStrings {
+  CONST_MAP(X86_RELOCATION, const char*, 6) enumStrings {
     { X86_RELOCATION::GENERIC_RELOC_VANILLA,        "VANILLA"        },
     { X86_RELOCATION::GENERIC_RELOC_PAIR,           "PAIR"           },
     { X86_RELOCATION::GENERIC_RELOC_SECTDIFF,       "SECTDIFF"       },
@@ -269,7 +269,7 @@ const char* to_string(X86_RELOCATION e) {
 
 
 const char* to_string(X86_64_RELOCATION e) {
-  const std::map<X86_64_RELOCATION, const char*> enumStrings {
+  CONST_MAP(X86_64_RELOCATION, const char*, 10) enumStrings {
     { X86_64_RELOCATION::X86_64_RELOC_UNSIGNED,   "UNSIGNED"   },
     { X86_64_RELOCATION::X86_64_RELOC_SIGNED,     "SIGNED"     },
     { X86_64_RELOCATION::X86_64_RELOC_BRANCH,     "BRANCH"     },
@@ -287,7 +287,7 @@ const char* to_string(X86_64_RELOCATION e) {
 
 
 const char* to_string(PPC_RELOCATION e) {
-  const std::map<PPC_RELOCATION, const char*> enumStrings {
+  CONST_MAP(PPC_RELOCATION, const char*, 16) enumStrings {
     { PPC_RELOCATION::PPC_RELOC_VANILLA,        "VANILLA"        },
     { PPC_RELOCATION::PPC_RELOC_PAIR,           "PAIR"           },
     { PPC_RELOCATION::PPC_RELOC_BR14,           "BR14"           },
@@ -311,7 +311,7 @@ const char* to_string(PPC_RELOCATION e) {
 
 
 const char* to_string(ARM_RELOCATION e) {
-  const std::map<ARM_RELOCATION, const char*> enumStrings {
+  CONST_MAP(ARM_RELOCATION, const char*, 10) enumStrings {
     { ARM_RELOCATION::ARM_RELOC_VANILLA,        "VANILLA"        },
     { ARM_RELOCATION::ARM_RELOC_PAIR,           "PAIR"           },
     { ARM_RELOCATION::ARM_RELOC_SECTDIFF,       "SECTDIFF"       },
@@ -329,7 +329,7 @@ const char* to_string(ARM_RELOCATION e) {
 
 
 const char* to_string(ARM64_RELOCATION e) {
-  const std::map<ARM64_RELOCATION, const char*> enumStrings {
+  CONST_MAP(ARM64_RELOCATION, const char*, 11) enumStrings {
     { ARM64_RELOCATION::ARM64_RELOC_UNSIGNED,            "UNSIGNED"            },
     { ARM64_RELOCATION::ARM64_RELOC_SUBTRACTOR,          "SUBTRACTOR"          },
     { ARM64_RELOCATION::ARM64_RELOC_BRANCH26,            "BRANCH26"            },
@@ -346,6 +346,143 @@ const char* to_string(ARM64_RELOCATION e) {
   return it == enumStrings.end() ? "Out of range" : it->second;
 }
 
+const char* to_string(RELOCATION_ORIGINS e) {
+  CONST_MAP(RELOCATION_ORIGINS, const char*, 3) enumStrings {
+    { RELOCATION_ORIGINS::ORIGIN_UNKNOWN,     "UNKNOWN"     },
+    { RELOCATION_ORIGINS::ORIGIN_DYLDINFO,    "DYLDINFO"    },
+    { RELOCATION_ORIGINS::ORIGIN_RELOC_TABLE, "RELOC_TABLE" },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+const char* to_string(REBASE_TYPES e) {
+  CONST_MAP(REBASE_TYPES, const char*, 3) enumStrings {
+    { REBASE_TYPES::REBASE_TYPE_POINTER,          "POINTER"         },
+    { REBASE_TYPES::REBASE_TYPE_TEXT_ABSOLUTE32,  "TEXT_ABSOLUTE32" },
+    { REBASE_TYPES::REBASE_TYPE_TEXT_PCREL32,     "TEXT_PCREL32"    },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(BINDING_CLASS e) {
+  CONST_MAP(BINDING_CLASS, const char*, 3) enumStrings {
+    { BINDING_CLASS::BIND_CLASS_WEAK,     "WEAK"      },
+    { BINDING_CLASS::BIND_CLASS_LAZY,     "LAZY"      },
+    { BINDING_CLASS::BIND_CLASS_STANDARD, "STANDARD"  },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(REBASE_OPCODES e) {
+  CONST_MAP(REBASE_OPCODES, const char*, 9) enumStrings {
+    { REBASE_OPCODES::REBASE_OPCODE_DONE,                               "DONE"                               },
+    { REBASE_OPCODES::REBASE_OPCODE_SET_TYPE_IMM,                       "SET_TYPE_IMM"                       },
+    { REBASE_OPCODES::REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB,        "SET_SEGMENT_AND_OFFSET_ULEB"        },
+    { REBASE_OPCODES::REBASE_OPCODE_ADD_ADDR_ULEB,                      "ADD_ADDR_ULEB"                      },
+    { REBASE_OPCODES::REBASE_OPCODE_ADD_ADDR_IMM_SCALED,                "ADD_ADDR_IMM_SCALED"                },
+    { REBASE_OPCODES::REBASE_OPCODE_DO_REBASE_IMM_TIMES,                "DO_REBASE_IMM_TIMES"                },
+    { REBASE_OPCODES::REBASE_OPCODE_DO_REBASE_ULEB_TIMES,               "DO_REBASE_ULEB_TIMES"               },
+    { REBASE_OPCODES::REBASE_OPCODE_DO_REBASE_ADD_ADDR_ULEB,            "DO_REBASE_ADD_ADDR_ULEB"            },
+    { REBASE_OPCODES::REBASE_OPCODE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB, "DO_REBASE_ULEB_TIMES_SKIPPING_ULEB" },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(BIND_TYPES e) {
+  CONST_MAP(BIND_TYPES, const char*, 3) enumStrings {
+    { BIND_TYPES::BIND_TYPE_POINTER,         "POINTER"         },
+    { BIND_TYPES::BIND_TYPE_TEXT_ABSOLUTE32, "TEXT_ABSOLUTE32" },
+    { BIND_TYPES::BIND_TYPE_TEXT_PCREL32,    "TEXT_PCREL32"    },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(BIND_SPECIAL_DYLIB e) {
+  CONST_MAP(BIND_SPECIAL_DYLIB, const char*, 3) enumStrings {
+    { BIND_SPECIAL_DYLIB::BIND_SPECIAL_DYLIB_SELF,            "SELF"            },
+    { BIND_SPECIAL_DYLIB::BIND_SPECIAL_DYLIB_MAIN_EXECUTABLE, "MAIN_EXECUTABLE" },
+    { BIND_SPECIAL_DYLIB::BIND_SPECIAL_DYLIB_FLAT_LOOKUP,     "FLAT_LOOKUP"     },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(BIND_OPCODES e) {
+  CONST_MAP(BIND_OPCODES, const char*, 13) enumStrings {
+    { BIND_OPCODES::BIND_OPCODE_DONE,                             "DONE"                             },
+    { BIND_OPCODES::BIND_OPCODE_SET_DYLIB_ORDINAL_IMM,            "SET_DYLIB_ORDINAL_IMM"            },
+    { BIND_OPCODES::BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB,           "SET_DYLIB_ORDINAL_ULEB"           },
+    { BIND_OPCODES::BIND_OPCODE_SET_DYLIB_SPECIAL_IMM,            "SET_DYLIB_SPECIAL_IMM"            },
+    { BIND_OPCODES::BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM,    "SET_SYMBOL_TRAILING_FLAGS_IMM"    },
+    { BIND_OPCODES::BIND_OPCODE_SET_TYPE_IMM,                     "SET_TYPE_IMM"                     },
+    { BIND_OPCODES::BIND_OPCODE_SET_ADDEND_SLEB,                  "SET_ADDEND_SLEB"                  },
+    { BIND_OPCODES::BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB,      "SET_SEGMENT_AND_OFFSET_ULEB"      },
+    { BIND_OPCODES::BIND_OPCODE_ADD_ADDR_ULEB,                    "ADD_ADDR_ULEB"                    },
+    { BIND_OPCODES::BIND_OPCODE_DO_BIND,                          "DO_BIND"                          },
+    { BIND_OPCODES::BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB,            "DO_BIND_ADD_ADDR_ULEB"            },
+    { BIND_OPCODES::BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED,      "DO_BIND_ADD_ADDR_IMM_SCALED"      },
+    { BIND_OPCODES::BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB, "DO_BIND_ULEB_TIMES_SKIPPING_ULEB" },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(EXPORT_SYMBOL_KINDS e) {
+  CONST_MAP(EXPORT_SYMBOL_KINDS, const char*, 3) enumStrings {
+    { EXPORT_SYMBOL_KINDS::EXPORT_SYMBOL_FLAGS_KIND_REGULAR,      "REGULAR"      },
+    { EXPORT_SYMBOL_KINDS::EXPORT_SYMBOL_FLAGS_KIND_THREAD_LOCAL, "THREAD_LOCAL" },
+    { EXPORT_SYMBOL_KINDS::EXPORT_SYMBOL_FLAGS_KIND_ABSOLUTE,     "ABSOLUTE"     },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(VM_PROTECTIONS e) {
+  CONST_MAP(VM_PROTECTIONS, const char*, 3) enumStrings {
+    { VM_PROTECTIONS::VM_PROT_READ,    "READ"    },
+    { VM_PROTECTIONS::VM_PROT_WRITE,   "WRITE"   },
+    { VM_PROTECTIONS::VM_PROT_EXECUTE, "EXECUTE" },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(SYMBOL_ORIGINS e) {
+  CONST_MAP(SYMBOL_ORIGINS, const char*, 3) enumStrings {
+    { SYMBOL_ORIGINS::SYM_ORIGIN_UNKNOWN,     "UNKNOWN"     },
+    { SYMBOL_ORIGINS::SYM_ORIGIN_DYLD_EXPORT, "DYLD_EXPORT" },
+    { SYMBOL_ORIGINS::SYM_ORIGIN_LC_SYMTAB,   "LC_SYMTAB"   },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "Out of range" : it->second;
+}
+
+
+const char* to_string(DataCodeEntry::TYPES e) {
+  CONST_MAP(DataCodeEntry::TYPES, const char*, 6) enumStrings {
+    { DataCodeEntry::TYPES::UNKNOWN,           "UNKNOWN"           },
+    { DataCodeEntry::TYPES::DATA,              "DATA"              },
+    { DataCodeEntry::TYPES::JUMP_TABLE_8,      "JUMP_TABLE_8"      },
+    { DataCodeEntry::TYPES::JUMP_TABLE_16,     "JUMP_TABLE_16"     },
+    { DataCodeEntry::TYPES::JUMP_TABLE_32,     "JUMP_TABLE_32"     },
+    { DataCodeEntry::TYPES::ABS_JUMP_TABLE_32, "ABS_JUMP_TABLE_32" },
+  };
+  auto   it  = enumStrings.find(e);
+  return it == enumStrings.end() ? "UNKNOWN" : it->second;
+}
 
 }
 }

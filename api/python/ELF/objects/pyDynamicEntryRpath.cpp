@@ -15,7 +15,7 @@
  */
 #include "pyELF.hpp"
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/ELF/hash.hpp"
 
 #include "LIEF/ELF/DynamicEntryRpath.hpp"
 #include "LIEF/ELF/DynamicEntry.hpp"
@@ -35,7 +35,14 @@ void init_ELF_DynamicEntryRpath_class(py::module& m) {
   // Dynamic Entry RPATH object
   //
   py::class_<DynamicEntryRpath, DynamicEntry>(m, "DynamicEntryRpath")
-    .def(py::init<const std::string &>())
+    .def(py::init<const std::string &>(),
+        "Constructor from (r)path",
+        "path"_a = "")
+
+    .def(py::init<const std::vector<std::string> &>(),
+        "Constructor from a list of paths",
+        "paths"_a)
+
     .def_property("name",
         [] (const DynamicEntryRpath& obj) {
           return safe_string_converter(obj.name());
@@ -50,11 +57,39 @@ void init_ELF_DynamicEntryRpath_class(py::module& m) {
         static_cast<setter_t<const std::string&>>(&DynamicEntryRpath::rpath),
         "Return path value")
 
+
+    .def_property("paths",
+        static_cast<getter_t<std::vector<std::string> >>(&DynamicEntryRpath::paths),
+        static_cast<setter_t<const std::vector<std::string>&>>(&DynamicEntryRpath::paths),
+        "Paths as a list")
+
+    .def("insert",
+        &DynamicEntryRpath::insert,
+        "Insert a ``path`` at the given ``position``",
+        "position"_a, "path"_a,
+        py::return_value_policy::reference)
+
+    .def("append",
+        &DynamicEntryRpath::append,
+        "Append the given ``path`` ",
+        "path"_a,
+        py::return_value_policy::reference)
+
+
+    .def("remove",
+        &DynamicEntryRpath::remove,
+        "Remove the given ``path`` ",
+        "path"_a,
+        py::return_value_policy::reference)
+
+    .def(py::self += std::string())
+    .def(py::self -= std::string())
+
     .def("__eq__", &DynamicEntryRpath::operator==)
     .def("__ne__", &DynamicEntryRpath::operator!=)
     .def("__hash__",
         [] (const DynamicEntryRpath& entry) {
-          return LIEF::Hash::hash(entry);
+          return Hash::hash(entry);
         })
 
 

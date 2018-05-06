@@ -16,28 +16,33 @@
 #include "LIEF/ELF/DynamicEntryRpath.hpp"
 
 #include <iomanip>
+#include <numeric>
+#include <sstream>
 
 namespace LIEF {
 namespace ELF {
 
-DynamicEntryRpath::DynamicEntryRpath(void) = default;
+DynamicEntryRpath::DynamicEntryRpath(void) :
+  DynamicEntry::DynamicEntry{DYNAMIC_TAGS::DT_RPATH, 0},
+  rpath_{}
+{}
+
 DynamicEntryRpath& DynamicEntryRpath::operator=(const DynamicEntryRpath&) = default;
 DynamicEntryRpath::DynamicEntryRpath(const DynamicEntryRpath&) = default;
 
-DynamicEntryRpath::DynamicEntryRpath(const Elf64_Dyn* header) :
-  DynamicEntry{header}
-{}
-
-
-DynamicEntryRpath::DynamicEntryRpath(const Elf32_Dyn* header) :
-  DynamicEntry{header}
-{}
 
 DynamicEntryRpath::DynamicEntryRpath(const std::string& rpath) :
+  DynamicEntry::DynamicEntry{DYNAMIC_TAGS::DT_RPATH, 0},
   rpath_{rpath}
 {
-  this->tag_   = DYNAMIC_TAGS::DT_RPATH;
-  this->value_ = 0;
+}
+
+
+DynamicEntryRpath::DynamicEntryRpath(const std::vector<std::string>& paths) :
+  DynamicEntry::DynamicEntry{DYNAMIC_TAGS::DT_RPATH, 0},
+  rpath_{""}
+{
+  this->paths(paths);
 }
 
 const std::string& DynamicEntryRpath::name(void) const {
@@ -58,10 +63,72 @@ void DynamicEntryRpath::rpath(const std::string& rpath) {
   this->name(rpath);
 }
 
+
+std::vector<std::string> DynamicEntryRpath::paths(void) const {
+  std::stringstream ss;
+  ss.str(this->rpath());
+  std::string path;
+  std::vector<std::string> paths;
+  while (std::getline(ss, path, DynamicEntryRpath::delimiter)) {
+    paths.push_back(path);
+  }
+  return paths;
+}
+
+void DynamicEntryRpath::paths(const std::vector<std::string>& paths) {
+  this->rpath_ = std::accumulate(
+      std::begin(paths),
+      std::end(paths),
+      std::string(""),
+      [] (std::string path, const std::string& new_entry) {
+        return path.empty() ? new_entry :  path + DynamicEntryRpath::delimiter + new_entry;
+      });
+}
+
+DynamicEntryRpath& DynamicEntryRpath::append(const std::string& path) {
+  std::vector<std::string> paths = this->paths();
+  paths.push_back(path);
+  this->paths(paths);
+  return *this;
+}
+
+DynamicEntryRpath& DynamicEntryRpath::remove(const std::string& path) {
+  std::vector<std::string> paths = this->paths();
+  paths.erase(std::remove_if(
+        std::begin(paths),
+        std::end(paths),
+        [&path] (const std::string& p) {
+          return p == path;
+        }), std::end(paths));
+  this->paths(paths);
+  return *this;
+}
+
+DynamicEntryRpath& DynamicEntryRpath::insert(size_t pos, const std::string path) {
+  std::vector<std::string> paths = this->paths();
+
+  if (pos == paths.size()) {
+    return this->append(path);
+  }
+
+  if (pos > paths.size()) {
+    throw corrupted(std::to_string(pos) + " is out of ranges");
+  }
+  paths.insert(std::begin(paths) + pos, path);
+  this->paths(paths);
+  return *this;
+}
+
+DynamicEntryRpath& DynamicEntryRpath::operator+=(const std::string& path) {
+  return this->append(path);
+}
+
+DynamicEntryRpath& DynamicEntryRpath::operator-=(const std::string& path) {
+  return this->remove(path);
+}
+
 void DynamicEntryRpath::accept(Visitor& visitor) const {
-  DynamicEntry::accept(visitor);
-  visitor(*this); // Double dispatch to avoid down-casting
-  visitor.visit(this->rpath());
+  visitor.visit(*this);
 }
 
 std::ostream& DynamicEntryRpath::print(std::ostream& os) const {

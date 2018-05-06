@@ -20,8 +20,10 @@
 #include <map>
 #include <iostream>
 
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 #include "LIEF/visibility.h"
+
+#include "LIEF/Abstract/Relocation.hpp"
 
 #include "LIEF/ELF/Structures.hpp"
 #include "LIEF/ELF/Symbol.hpp"
@@ -30,9 +32,14 @@ namespace LIEF {
 namespace ELF {
 
 class Parser;
-class DLL_PUBLIC Relocation : public Visitable {
+class Binary;
+class Builder;
+
+class LIEF_API Relocation : public LIEF::Relocation {
 
   friend class Parser;
+  friend class Binary;
+  friend class Builder;
 
   public:
     Relocation(const Elf32_Rel*  header);
@@ -40,6 +47,12 @@ class DLL_PUBLIC Relocation : public Visitable {
     Relocation(const Elf64_Rel*  header);
     Relocation(const Elf64_Rela* header);
     Relocation(uint64_t address, uint32_t type = 0, int64_t addend = 0, bool isRela = false);
+
+    template<class T, typename = typename std::enable_if<std::is_enum<T>::value>::type>
+    Relocation(uint64_t address, T type, int64_t addend = 0, bool isRela = false) :
+      Relocation{address, static_cast<uint32_t>(type), addend, isRela}
+    {}
+
     Relocation(void);
     virtual ~Relocation(void);
 
@@ -47,7 +60,7 @@ class DLL_PUBLIC Relocation : public Visitable {
     Relocation(const Relocation& other);
     void swap(Relocation& other);
 
-    uint64_t address(void) const;
+    //uint64_t address(void) const;
     int64_t  addend(void) const;
     uint32_t type(void) const;
     bool     is_rela(void) const;
@@ -56,13 +69,22 @@ class DLL_PUBLIC Relocation : public Visitable {
     RELOCATION_PURPOSES purpose(void) const;
 
     //! @brief Return the **bit** size of the value to patch
-    uint32_t size(void) const;
+    //!
+    //! Return -1 if it fails
+    virtual size_t size(void) const override;
 
     bool          has_symbol(void) const;
     Symbol&       symbol(void);
     const Symbol& symbol(void) const;
 
-    void address(uint64_t address);
+    //! True if the relocation has a section associated
+    bool           has_section(void) const;
+
+    //! Section associated with this relocation
+    Section&       section(void);
+    const Section& section(void) const;
+
+    //void address(uint64_t address);
     void addend(int64_t addend);
     void type(uint32_t type);
     void purpose(RELOCATION_PURPOSES purpose);
@@ -72,17 +94,19 @@ class DLL_PUBLIC Relocation : public Visitable {
     bool operator==(const Relocation& rhs) const;
     bool operator!=(const Relocation& rhs) const;
 
-    DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Relocation& entry);
+    LIEF_API friend std::ostream& operator<<(std::ostream& os, const Relocation& entry);
 
   private:
-    uint64_t            address_;
     uint32_t            type_;
     int64_t             addend_;
     bool                isRela_;
-    Symbol*             symbol_;
+    Symbol*             symbol_{nullptr};
     ARCH                architecture_;
     RELOCATION_PURPOSES purpose_;
+    Section*            section_{nullptr};
 };
+
+
 
 }
 }

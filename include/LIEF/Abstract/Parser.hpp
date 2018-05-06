@@ -24,7 +24,7 @@
 #include "LIEF/visibility.h"
 
 namespace LIEF {
-class DLL_PUBLIC Parser
+class LIEF_API Parser
 {
   public:
     //! @brief Construct an LIEF::Binary from the given filename
@@ -33,6 +33,14 @@ class DLL_PUBLIC Parser
     //! return the **last** one
     //! @see LIEF::MachO::Parser::parse
     static Binary* parse(const std::string& filename);
+
+
+    //! @brief Construct an LIEF::Binary from the given raw data
+    //!
+    //! @warning If the target file is a FAT Mach0, it will
+    //! return the **last** one
+    //! @see LIEF::MachO::Parser::parse
+    static Binary* parse(const std::vector<uint8_t>& raw, const std::string& name = "");
 
   protected:
     Parser(const std::string& file);

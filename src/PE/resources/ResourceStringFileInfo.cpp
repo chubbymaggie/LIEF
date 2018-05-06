@@ -15,8 +15,9 @@
  */
 #include <iomanip>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 
+#include "LIEF/utils.hpp"
 #include "LIEF/PE/utils.hpp"
 
 #include "LIEF/PE/resources/ResourceStringFileInfo.hpp"
@@ -71,11 +72,7 @@ void ResourceStringFileInfo::langcode_items(const std::vector<LangCodeItem>& ite
 
 
 void ResourceStringFileInfo::accept(Visitor& visitor) const {
-  visitor.visit(this->type());
-  visitor.visit(this->key());
-  for (const LangCodeItem& item : this->langcode_items()) {
-    visitor(item);
-  }
+  visitor.visit(*this);
 }
 
 

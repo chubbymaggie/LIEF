@@ -23,7 +23,7 @@
 #include <mbedtls/oid.h>
 #include <mbedtls/x509_crt.h>
 
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 
 #include "LIEF/filesystem/filesystem.h"
 #include "LIEF/exception.hpp"
@@ -33,6 +33,9 @@
 #include "LIEF/PE/signature/Signature.hpp"
 #include "LIEF/PE/signature/SignatureParser.hpp"
 #include "LIEF/PE/signature/OIDToString.hpp"
+
+
+#include "LIEF/PE/CodeViewPDB.hpp"
 
 #include "LIEF/PE/Parser.hpp"
 #include "Parser.tcc"
@@ -78,14 +81,14 @@ void Parser::init(const std::string& name) {
   this->binary_->type_ = this->type_;
 
   if (this->type_ == PE_TYPE::PE32) {
-    this->build<PE32>();
+    this->parse<PE32>();
   } else {
-    this->build<PE64>();
+    this->parse<PE64>();
   }
 
 }
 
-void Parser::build_dos_stub(void) {
+void Parser::parse_dos_stub(void) {
   const DosHeader& dos_header = this->binary_->dos_header();
 
   if (dos_header.addressof_new_exeheader() < sizeof(pe_dos_header)) {
@@ -93,17 +96,19 @@ void Parser::build_dos_stub(void) {
   }
   const uint64_t sizeof_dos_stub = dos_header.addressof_new_exeheader() - sizeof(pe_dos_header);
 
-  LOG(DEBUG) << "Size of dos stub: " << std::hex << sizeof_dos_stub;
+  VLOG(VDEBUG) << "Size of dos stub: " << std::hex << sizeof_dos_stub;
 
-  const uint8_t* ptr_to_dos_stub = reinterpret_cast<const uint8_t*>(this->stream_->read(
-          sizeof(pe_dos_header),
-          sizeof_dos_stub));
-  this->binary_->dos_stub_ = {ptr_to_dos_stub, ptr_to_dos_stub + sizeof_dos_stub};
+  const uint8_t* ptr_to_dos_stub = this->stream_->peek_array<uint8_t>(sizeof(pe_dos_header), sizeof_dos_stub);
+  if (ptr_to_dos_stub == nullptr) {
+    LOG(ERROR) << "Dost stub corrupted!";
+  } else {
+    this->binary_->dos_stub_ = {ptr_to_dos_stub, ptr_to_dos_stub + sizeof_dos_stub};
+  }
 }
 
 
-void Parser::build_rich_header(void) {
-  LOG(DEBUG) << "Parsing Rich Header";
+void Parser::parse_rich_header(void) {
+  VLOG(VDEBUG) << "Parsing Rich Header";
   const std::vector<uint8_t>& dos_stub = this->binary_->dos_stub();
   VectorStream stream{dos_stub};
   auto&& it_rich = std::search(
@@ -113,21 +118,25 @@ void Parser::build_rich_header(void) {
       std::end(Rich_Magic));
 
   if (it_rich == std::end(dos_stub)) {
-    LOG(DEBUG) << "Rich header not found";
+    VLOG(VDEBUG) << "Rich header not found";
     return;
   }
 
-  this->binary_->has_rich_header_ = true;
 
   const uint64_t end_offset_rich_header = std::distance(std::begin(dos_stub), it_rich);
-  LOG(DEBUG) << "Offset to rich header: " << std::hex << end_offset_rich_header;
+  VLOG(VDEBUG) << "Offset to rich header: " << std::hex << end_offset_rich_header;
 
-  const uint32_t xor_key = stream.read_integer<uint32_t>(end_offset_rich_header + sizeof(Rich_Magic));
+  if (not stream.can_read<uint32_t>(end_offset_rich_header + sizeof(Rich_Magic))) {
+    return;
+  }
+  const uint32_t xor_key = stream.peek<uint32_t>(end_offset_rich_header + sizeof(Rich_Magic));
+
   this->binary_->rich_header().key(xor_key);
-  LOG(DEBUG) << "XOR Key: " << std::hex << xor_key;
+  VLOG(VDEBUG) << "XOR Key: " << std::hex << xor_key;
 
 
   uint64_t curent_offset = end_offset_rich_header - sizeof(Rich_Magic);
+
   std::vector<uint32_t> values;
   values.reserve(dos_stub.size() / sizeof(uint32_t));
 
@@ -135,33 +144,38 @@ void Parser::build_rich_header(void) {
   uint32_t value = 0;
 
   while (value != DanS_Magic_number and count != DanS_Magic_number) {
-    try {
-      count = stream.read_integer<uint32_t>(curent_offset) ^ xor_key;
-      curent_offset -= sizeof(uint32_t);
-
-      value = stream.read_integer<uint32_t>(curent_offset) ^ xor_key;
-      curent_offset -= sizeof(uint32_t);
-    } catch (const read_out_of_bound&) {
-      throw corrupted("Rich Header corrupted");
+    if (not stream.can_read<uint32_t>(curent_offset)) {
+      break;
     }
+
+    count = stream.peek<uint32_t>(curent_offset) ^ xor_key;
+    curent_offset -= sizeof(uint32_t);
+
+    if (not stream.can_read<uint32_t>(curent_offset)) {
+      break;
+    }
+
+    value = stream.peek<uint32_t>(curent_offset) ^ xor_key;
+    curent_offset -= sizeof(uint32_t);
 
     if (value == DanS_Magic_number or count == DanS_Magic_number) {
       break;
     }
 
     uint16_t build_number = value & 0xFFFF;
-    uint16_t id = (value >> 16) & 0xFFFF;
+    uint16_t id           = (value >> 16) & 0xFFFF;
 
-    LOG(DEBUG) << "ID: "           << std::hex << id << " "
+    VLOG(VDEBUG) << "ID: "           << std::hex << id << " "
                << "Build Number: " << std::hex << build_number << " "
                << "Count: "        << std::dec << count;
 
     this->binary_->rich_header().add_entry(id, build_number, count);
   }
 
-  LOG(DEBUG) << this->binary_->rich_header();
+  VLOG(VDEBUG) << this->binary_->rich_header();
 
 
+  this->binary_->has_rich_header_ = true;
 
 }
 
@@ -169,33 +183,33 @@ void Parser::build_rich_header(void) {
 
 
 //
-// Build PE sections
+// parse PE sections
 //
 // TODO: Check offset etc
-void Parser::build_sections(void) {
+void Parser::parse_sections(void) {
 
-  LOG(DEBUG) << "[+] Parsing sections";
+  VLOG(VDEBUG) << "[+] Parsing sections";
 
   const uint32_t sections_offset  =
     this->binary_->dos_header().addressof_new_exeheader() +
     sizeof(pe_header) +
     this->binary_->header().sizeof_optional_header();
 
+  uint32_t first_section_offset = -1u;
+
   const uint32_t numberof_sections = this->binary_->header().numberof_sections();
-  const pe_section* sections = [&]() {
-    try {
-      return reinterpret_cast<const pe_section*>(
-        this->stream_->read(sections_offset, numberof_sections * sizeof(pe_section)));
-    } catch (const read_out_of_bound&) {
-      throw corrupted("Sections corrupted");
-    }
-  }();
+  const pe_section* sections = this->stream_->peek_array<pe_section>(sections_offset, numberof_sections);
+  if (sections == nullptr) {
+    LOG(ERROR) << "Sections corrupted!";
+    return;
+  }
 
   for (size_t i = 0; i < numberof_sections; ++i) {
-    Section* section = new Section{&sections[i]};
+    std::unique_ptr<Section> section{new Section{&sections[i]}};
 
     uint32_t size_to_read = 0;
     uint32_t offset = sections[i].PointerToRawData;
+    first_section_offset = std::min(first_section_offset, offset);
 
     if (sections[i].VirtualSize > 0) {
       size_to_read = std::min(sections[i].VirtualSize, sections[i].SizeOfRawData); // According to Corkami
@@ -209,33 +223,33 @@ void Parser::build_sections(void) {
     }
 
 
-    try {
-      const uint8_t* ptr_to_rawdata = reinterpret_cast<const uint8_t*>(this->stream_->read(
-        offset,
-        size_to_read));
-
-      section->content_ = {
-        ptr_to_rawdata,
-        ptr_to_rawdata + size_to_read
-      };
-    } catch (const std::bad_alloc& e) {
-      LOG(WARNING) << "Section " << section->name() << " corrupted: " << e.what();
-    } catch (const read_out_of_bound& e) {
-      LOG(WARNING) << "Section " << section->name() << " corrupted: " << e.what();
+    if (size_to_read > Parser::MAX_DATA_SIZE) {
+      LOG(WARNING) << "Section '" << section->name() << "' data is too large!";
+    } else {
+      const uint8_t* ptr_to_rawdata = this->stream_->peek_array<uint8_t>(offset, size_to_read);
+      if (ptr_to_rawdata == nullptr) {
+        LOG(ERROR) << "Section #" << std::dec << i << " corrupted!";
+      } else {
+        section->content_ = {
+          ptr_to_rawdata,
+          ptr_to_rawdata + size_to_read
+        };
+      }
     }
-
-    this->binary_->sections_.push_back(section);
+    this->binary_->sections_.push_back(section.release());
   }
+  const uint32_t last_section_header_offset = sections_offset + numberof_sections * sizeof(pe_section);
+  this->binary_->available_sections_space_ = (first_section_offset - last_section_header_offset) / sizeof(pe_section) - 1;
+  VLOG(VDEBUG) << "Number of sections that could be added: " << std::dec << this->binary_->available_sections_space_;
 }
 
 
 //
-// Build relocations
+// parse relocations
 //
-void Parser::build_relocations(void) {
-  LOG(DEBUG) << "[+] Parsing relocations";
+void Parser::parse_relocations(void) {
+  VLOG(VDEBUG) << "[+] Parsing relocations";
 
-  this->binary_->has_relocations_ = true;
 
   const uint32_t offset = this->binary_->rva_to_offset(
       this->binary_->data_directory(DATA_DIRECTORY::BASE_RELOCATION_TABLE).RVA());
@@ -243,279 +257,288 @@ void Parser::build_relocations(void) {
   const uint32_t max_size = this->binary_->data_directory(DATA_DIRECTORY::BASE_RELOCATION_TABLE).size();
   const uint32_t max_offset = offset + max_size;
 
-  const pe_base_relocation_block* relocation_headers = reinterpret_cast<const pe_base_relocation_block*>(
-      this->stream_->read(offset, sizeof(pe_base_relocation_block)));
+  if (not this->stream_->can_read<pe_base_relocation_block>(offset)) {
+    return;
+  }
 
+  pe_base_relocation_block relocation_headers = this->stream_->peek<pe_base_relocation_block>(offset);
 
   uint32_t current_offset = offset;
-  while (current_offset < max_offset and relocation_headers->PageRVA != 0) {
-    Relocation relocation{relocation_headers};
+  while (current_offset < max_offset and relocation_headers.PageRVA != 0) {
+    std::unique_ptr<Relocation> relocation{new Relocation{&relocation_headers}};
 
-    if (relocation_headers->BlockSize < sizeof(pe_base_relocation_block)) {
-      throw corrupted("Relocation corrupted: BlockSize is too small");
-    } else if (relocation_headers->BlockSize > this->binary_->optional_header().sizeof_image()) {
-      throw corrupted("Relocation corrupted: BlockSize is out of bound the binary's virtual size");
+    if (relocation_headers.BlockSize < sizeof(pe_base_relocation_block)) {
+      LOG(ERROR) << "Relocation corrupted: BlockSize is too small";
+      break;
+    } else if (relocation_headers.BlockSize > this->binary_->optional_header().sizeof_image()) {
+      LOG(ERROR) << "Relocation corrupted: BlockSize is out of bound the binary's virtual size";
+      break;
     }
 
-    const uint32_t numberof_entries = (relocation_headers->BlockSize - sizeof(pe_base_relocation_block)) / sizeof(uint16_t);
-    const uint16_t* entries = reinterpret_cast<const uint16_t*>(
-        this->stream_->read(current_offset + sizeof(pe_base_relocation_block), relocation_headers->BlockSize - sizeof(pe_base_relocation_block)));
+    const uint32_t numberof_entries = (relocation_headers.BlockSize - sizeof(pe_base_relocation_block)) / sizeof(uint16_t);
+    const uint16_t* entries = this->stream_->peek_array<uint16_t>(current_offset + sizeof(pe_base_relocation_block), numberof_entries);
+
+    if (entries == nullptr) {
+      break;
+    }
+
     for (size_t i = 0; i < numberof_entries; ++i) {
-      relocation.entries_.emplace_back(entries[i]);
+      std::unique_ptr<RelocationEntry> entry{new RelocationEntry{entries[i]}};
+      entry->relocation_ = relocation.get();
+      relocation->entries_.push_back(entry.release());
     }
 
-    this->binary_->relocations_.push_back(relocation);
+    this->binary_->relocations_.push_back(relocation.release());
 
-    current_offset += relocation_headers->BlockSize;
+    current_offset += relocation_headers.BlockSize;
 
-    relocation_headers = reinterpret_cast<const pe_base_relocation_block*>(
-      this->stream_->read(current_offset, sizeof(pe_base_relocation_block)));
+    relocation_headers = this->stream_->peek<pe_base_relocation_block>(current_offset);
   }
+
+  this->binary_->has_relocations_ = true;
 }
 
 
 //
-// Build ressources
+// parse ressources
 //
-void Parser::build_resources(void) {
-  LOG(DEBUG) << "[+] Parsing resources";
-
-  this->binary_->has_resources_ = true;
+void Parser::parse_resources(void) {
+  VLOG(VDEBUG) << "[+] Parsing resources";
 
   const uint32_t resources_rva = this->binary_->data_directory(DATA_DIRECTORY::RESOURCE_TABLE).RVA();
-  LOG(DEBUG) << "Resources RVA: 0x" << std::hex << resources_rva;
+  VLOG(VDEBUG) << "Resources RVA: 0x" << std::hex << resources_rva;
 
   const uint32_t offset = this->binary_->rva_to_offset(resources_rva);
-  LOG(DEBUG) << "Resources Offset: 0x" << std::hex << offset;
+  VLOG(VDEBUG) << "Resources Offset: 0x" << std::hex << offset;
 
-  const pe_resource_directory_table* directory_table = reinterpret_cast<const pe_resource_directory_table*>(
-      this->stream_->read(offset, sizeof(pe_resource_directory_table)));
+  if (not this->stream_->can_read<pe_resource_directory_table>(offset)) {
+    return;
+  }
 
-  this->binary_->resources_ = this->build_resource_node(directory_table, offset);
+  const pe_resource_directory_table& directory_table = this->stream_->peek<pe_resource_directory_table>(offset);
+
+  this->binary_->resources_     = this->parse_resource_node(&directory_table, offset, offset);
+  this->binary_->has_resources_ = (this->binary_->resources_ != nullptr);
 }
 
 
 //
-// Build the resources tree
+// parse the resources tree
 //
-ResourceNode* Parser::build_resource_node(
+ResourceNode* Parser::parse_resource_node(
     const pe_resource_directory_table *directory_table,
     uint32_t base_offset,
+    uint32_t current_offset,
     uint32_t depth) {
 
   const uint32_t numberof_ID_entries   = directory_table->NumberOfIDEntries;
   const uint32_t numberof_name_entries = directory_table->NumberOfNameEntries;
 
-  const pe_resource_directory_entries* entries_array = reinterpret_cast<const pe_resource_directory_entries*>(directory_table + 1);
+  //const pe_resource_directory_entries* entries_array = reinterpret_cast<const pe_resource_directory_entries*>(directory_table + 1);
+  size_t directory_array_offset = current_offset + sizeof(pe_resource_directory_table);
 
-  ResourceDirectory* directory = new ResourceDirectory{directory_table};
+  if (not this->stream_->can_read<pe_resource_directory_entries>(directory_array_offset)) {
+    return nullptr;
+  }
+  pe_resource_directory_entries entries_array = this->stream_->peek<pe_resource_directory_entries>(directory_array_offset);
+
+  std::unique_ptr<ResourceDirectory> directory{new ResourceDirectory{directory_table}};
 
   directory->depth_ = depth;
 
   // Iterate over the childs
   for (uint32_t idx = 0; idx < (numberof_name_entries + numberof_ID_entries); ++idx) {
 
-    uint32_t data_rva = entries_array[idx].RVA;
-    uint32_t id        = entries_array[idx].NameID.IntegerID;
+    uint32_t data_rva = entries_array.RVA;
+    uint32_t id       = entries_array.NameID.IntegerID;
+
+    directory_array_offset += sizeof(pe_resource_directory_entries);
+    if (not this->stream_->can_read<pe_resource_directory_entries>(directory_array_offset)) {
+      break;
+    }
+    entries_array = this->stream_->peek<pe_resource_directory_entries>(directory_array_offset);
+
     std::u16string name;
 
     // Get the resource name
     if (id & 0x80000000) {
-      uint32_t offset = id & (~ 0x80000000);
+      uint32_t offset        = id & (~ 0x80000000);
       uint32_t string_offset = base_offset + offset;
-      try {
-        const uint16_t length = *reinterpret_cast<const uint16_t*>(
-            this->stream_->read(string_offset, sizeof(uint16_t)));
 
-        if (length > 100) {
-          LOG(DEBUG) << "Size: " << std::dec << length;
-          throw LIEF::corrupted("Size error");
+      if (this->stream_->can_read<uint16_t>(string_offset)) {
+        const uint16_t length = this->stream_->peek<uint16_t>(string_offset);
+        if (length <= 100) {
+          name = this->stream_->peek_u16string_at(string_offset + sizeof(uint16_t), length);
         }
 
-        name = std::u16string{reinterpret_cast<const char16_t*>(
-            this->stream_->read(
-              base_offset + offset + sizeof(uint16_t),
-              length * sizeof(uint16_t))),
-             length};
-      } catch (const LIEF::read_out_of_bound&) {
-        LOG(WARNING) << "Resource name is corrupted";
       }
     }
 
     if ((0x80000000 & data_rva) == 0) { // We are on a leaf
       uint32_t offset = base_offset + data_rva;
 
-      try {
-        const pe_resource_data_entry *data_entry = reinterpret_cast<const pe_resource_data_entry*>(
-            this->stream_->read(offset, sizeof(pe_resource_data_entry)));
+      if (not this->stream_->can_read<pe_resource_data_entry>()) {
+        break;
+      }
 
-        uint32_t content_offset = this->binary_->rva_to_offset(data_entry->DataRVA);
-        uint32_t content_size   = data_entry->Size;
-        uint32_t code_page      = data_entry->Codepage;
+      const pe_resource_data_entry& data_entry = this->stream_->peek<pe_resource_data_entry>(offset);
 
-        const uint8_t* content_ptr = reinterpret_cast<const uint8_t*>(
-            this->stream_->read(content_offset, content_size));
+      uint32_t content_offset = this->binary_->rva_to_offset(data_entry.DataRVA);
+      uint32_t content_size   = data_entry.Size;
+      uint32_t code_page      = data_entry.Codepage;
+
+      const uint8_t* content_ptr = this->stream_->peek_array<uint8_t>(content_offset, content_size);
+      if (content_ptr != nullptr) {
 
         std::vector<uint8_t> content = {
           content_ptr,
           content_ptr + content_size};
 
-        ResourceNode* node = new ResourceData{content, code_page};
+        std::unique_ptr<ResourceData> node{new ResourceData{content, code_page}};
 
         node->depth_ = depth + 1;
         node->id(id);
         node->name(name);
-        dynamic_cast<ResourceData*>(node)->offset_ = content_offset;
+        node->offset_ = content_offset;
 
-        directory->childs_.push_back(node);
-      } catch (const LIEF::read_out_of_bound&) { // Corrupted
+        directory->childs_.push_back(node.release());
+      } else {
         LOG(WARNING) << "The leaf is corrupted";
         break;
       }
     } else { // We are on a directory
       const uint32_t directory_rva = data_rva & (~ 0x80000000);
       const uint32_t offset        = base_offset + directory_rva;
-      try {
-        const pe_resource_directory_table* nextDirectoryTable = reinterpret_cast<const pe_resource_directory_table*>(
-            this->stream_->read(offset, sizeof(pe_resource_directory_table)));
+      if (this->stream_->can_read<pe_resource_directory_table>(offset)) {
+        const pe_resource_directory_table& nextDirectoryTable = this->stream_->peek<pe_resource_directory_table>(offset);
         if (this->resource_visited_.count(offset) > 0) {
           LOG(WARNING) << "Infinite loop detected on resources";
           break;
         }
         this->resource_visited_.insert(offset);
 
-        ResourceNode* node = this->build_resource_node(nextDirectoryTable, base_offset, depth + 1);
-        node->id(id);
-        node->name(name);
-        directory->childs_.push_back(node);
-      } catch (const LIEF::read_out_of_bound&) { // Corrupted
+        std::unique_ptr<ResourceNode> node{this->parse_resource_node(&nextDirectoryTable, base_offset, offset, depth + 1)};
+        if (node) {
+          node->id(id);
+          node->name(name);
+          directory->childs_.push_back(node.release());
+        }
+      } else { // Corrupted
         LOG(WARNING) << "The directory is corrupted";
         break;
       }
     }
+
   }
 
-  return std::move(directory);
+  return directory.release();
 }
 
 //
-// Build string table
+// parse string table
 //
-void Parser::build_string_table(void) {
-  LOG(DEBUG) << "[+] Parsing string table";
-  uint32_t stringTableOffset =
+void Parser::parse_string_table(void) {
+  VLOG(VDEBUG) << "[+] Parsing string table";
+  uint32_t string_table_offset =
     this->binary_->header().pointerto_symbol_table() +
     this->binary_->header().numberof_symbols() * STRUCT_SIZES::Symbol16Size;
 
-  uint32_t size = *reinterpret_cast<const uint32_t*>(
-      this->stream_->read(stringTableOffset, sizeof(uint32_t))) - 4;
+  uint32_t size = this->stream_->peek<uint32_t>(string_table_offset);
+  if (size < 4) {
+    return;
+  }
+  size -= 4;
+  uint32_t current_size = 0;
 
-  uint32_t currentSize = 0;
-
-  const char *table = this->stream_->read_string(stringTableOffset + 4);
-
-  while (currentSize < size) {
-    std::string name{table + currentSize};
-    currentSize += name.size() + 1;
+  while (current_size < size) {
+    std::string name = this->stream_->peek_string_at(string_table_offset + sizeof(uint32_t) + current_size);
+    current_size += name.size() + 1;
     this->binary_->strings_table_.push_back(name);
   }
 }
 
 
 //
-// Build Symbols
+// parse Symbols
 //
-void Parser::build_symbols(void) {
-  LOG(DEBUG) << "[+] Parsing symbols";
-  uint32_t symbolTableOffset = this->binary_->header().pointerto_symbol_table();
-  uint32_t numberOfSymbols   = this->binary_->header().numberof_symbols();
-  uint32_t offsetToNextSymbol = symbolTableOffset;
+void Parser::parse_symbols(void) {
+  VLOG(VDEBUG) << "[+] Parsing symbols";
+  uint32_t symbol_table_offset = this->binary_->header().pointerto_symbol_table();
+  uint32_t nb_symbols          = this->binary_->header().numberof_symbols();
+  uint32_t current_offset      = symbol_table_offset;
 
   uint32_t idx = 0;
-  while (idx < numberOfSymbols) {
-    //if (offsetToNextSymbol >= this->rawBinary_.size()) {
-    //  throw LIEF::exception("Parser::build_symbols(): Symbol offset corrupted",
-    //      LIEF::EXCEPTION_TYPES::CORRUPTED_OFFSET);
-    //}
-    //TODO: try catch
-    pe_symbol *symbolPtr;
-    try {
-      symbolPtr = reinterpret_cast<pe_symbol*>(const_cast<void*>(
-        this->stream_->read(offsetToNextSymbol, sizeof(pe_symbol))));
+  while (idx < nb_symbols) {
 
-    } catch (const LIEF::read_out_of_bound&) { // Corrupted
-      LOG(WARNING) << "Symbol is corrupted (idx: " << std::dec << idx << ")";
+    if (not this->stream_->can_read<pe_symbol>(current_offset)) {
       break;
     }
 
-
-    Symbol symbol{reinterpret_cast<const pe_symbol*>(symbolPtr)};
+    const pe_symbol& raw_symbol = this->stream_->peek<pe_symbol>(current_offset);
+    Symbol symbol{&raw_symbol};
 
     std::string name;
-    if ((symbolPtr->Name.Name.Zeroes & 0xffff) != 0) {
-      name = symbolPtr->Name.ShortName;
+    if ((raw_symbol.Name.Name.Zeroes & 0xffff) != 0) {
+      std::string shortname{raw_symbol.Name.ShortName, sizeof(raw_symbol.Name.ShortName)};
+      name = shortname.c_str();
     } else {
-      uint32_t offset = symbolPtr->Name.Name.Offset;
       uint64_t offset_name =
         this->binary_->header().pointerto_symbol_table() +
         this->binary_->header().numberof_symbols() * STRUCT_SIZES::Symbol16Size +
-        offset;
-      try {
-        symbol.name_ = this->stream_->read_string(offset_name);
-      } catch (const LIEF::read_out_of_bound&) { // Corrupted
-        LOG(WARNING) << "Symbol name is corrupted";
-      }
+        raw_symbol.Name.Name.Offset;
+      symbol.name_ = this->stream_->peek_string_at(offset_name);
     }
+
     if (symbol.section_number() > 0 and
         static_cast<uint32_t>(symbol.section_number()) < this->binary_->sections_.size()) {
       symbol.section_ = this->binary_->sections_[symbol.section_number()];
     }
 
-    for (uint32_t i = 0; i < symbolPtr->NumberOfAuxSymbols; ++i) {
+    for (uint32_t i = 0; i < raw_symbol.NumberOfAuxSymbols; ++i) {
       // Auxiliary Format 1: Function Definitions
       // * Storage class : EXTERNAL
       // * Type          : 0x20 (Function)
       // * Section Number: > 0
-      if (symbol.storage_class() == IMAGE_SYM_CLASS_EXTERNAL and
+      if (symbol.storage_class() == SYMBOL_STORAGE_CLASS::IMAGE_SYM_CLASS_EXTERNAL and
           symbol.type() == 0x20 and symbol.section_number() > 0) {
-        LOG(DEBUG) << "Format1";
+        VLOG(VDEBUG) << "Format1";
       }
 
 
       // Auxiliary Format 2: .bf and .ef Symbols
       // * Storage class : FUNCTION
-      if (symbol.storage_class() == IMAGE_SYM_CLASS_FUNCTION) {
-        LOG(DEBUG) << "Function";
+      if (symbol.storage_class() == SYMBOL_STORAGE_CLASS::IMAGE_SYM_CLASS_FUNCTION) {
+        VLOG(VDEBUG) << "Function";
       }
 
       // Auxiliary Format 3: Weak Externals
       // * Storage class : EXTERNAL
       // * Section Number: UNDEF
       // * Value         : 0
-      if (symbol.storage_class() == IMAGE_SYM_CLASS_EXTERNAL and
-          symbol.value() == 0 and symbol.section_number() == IMAGE_SYM_UNDEFINED) {
-        LOG(DEBUG) << "Format 3";
+      if (symbol.storage_class() == SYMBOL_STORAGE_CLASS::IMAGE_SYM_CLASS_EXTERNAL and
+          symbol.value() == 0 and static_cast<SYMBOL_SECTION_NUMBER>(symbol.section_number()) == SYMBOL_SECTION_NUMBER::IMAGE_SYM_UNDEFINED) {
+        VLOG(VDEBUG) << "Format 3";
       }
 
       // Auxiliary Format 4: Files
       // * Storage class     : FILE
       // * Name **SHOULD** be: .file
-      if (symbol.storage_class() == IMAGE_SYM_CLASS_FILE) {
-        LOG(DEBUG) << "Format 4";
+      if (symbol.storage_class() == SYMBOL_STORAGE_CLASS::IMAGE_SYM_CLASS_FILE) {
+        VLOG(VDEBUG) << "Format 4";
         //std::cout << reinterpret_cast<char*>(
       }
 
       // Auxiliary Format 5: Section Definitions
       // * Storage class     : STATIC
-      if (symbol.storage_class() == IMAGE_SYM_CLASS_STATIC) {
-        LOG(DEBUG) << "Format 5";
+      if (symbol.storage_class() == SYMBOL_STORAGE_CLASS::IMAGE_SYM_CLASS_STATIC) {
+        VLOG(VDEBUG) << "Format 5";
       }
 
-      offsetToNextSymbol += STRUCT_SIZES::Symbol16Size;
+      current_offset += STRUCT_SIZES::Symbol16Size;
     }
 
-    offsetToNextSymbol += STRUCT_SIZES::Symbol16Size;
-    idx += 1 + symbolPtr->NumberOfAuxSymbols;
+    current_offset += STRUCT_SIZES::Symbol16Size;
+    idx += 1 + raw_symbol.NumberOfAuxSymbols;
     this->binary_->symbols_.push_back(std::move(symbol));
   }
 
@@ -524,11 +547,11 @@ void Parser::build_symbols(void) {
 
 
 //
-// Build Debug
+// parse Debug
 //
 
-void Parser::build_debug(void) {
-  LOG(DEBUG) << "[+] Parsing Debug";
+void Parser::parse_debug(void) {
+  VLOG(VDEBUG) << "[+] Parsing Debug";
 
   this->binary_->has_debug_ = true;
 
@@ -536,72 +559,115 @@ void Parser::build_debug(void) {
   uint32_t debugoffset = this->binary_->rva_to_offset(debugRVA);
   //uint32_t debugsize   = this->binary_->dataDirectories_[DATA_DIRECTORY::DEBUG]->size();
 
-  const pe_debug* debug_struct = reinterpret_cast<const pe_debug*>(
-      this->stream_->read(debugoffset, sizeof(pe_debug)));
+  const pe_debug& debug_struct = this->stream_->peek<pe_debug>(debugoffset);
 
-  this->binary_->debug_ = {debug_struct};
+  this->binary_->debug_ = &debug_struct;
+
+  DEBUG_TYPES type = this->binary_->debug().type();
+
+  switch (type) {
+    case DEBUG_TYPES::IMAGE_DEBUG_TYPE_CODEVIEW:
+      {
+        this->parse_debug_code_view();
+      }
+    default:
+      {
+      }
+  }
 }
 
-//
-// Build configuration
-//
-void Parser::build_configuration(void) {
-  LOG(DEBUG) << "[+] Parsing Load config";
-  this->binary_->has_configuration_ = true;
-  //uint32_t offset = rva_to_offset(this->binary_->sectionsList_, this->binary_->dataDirList_[LOAD_CONFIG_TABLE].getRVA());
-  //this->binary_->loadConfigure_ = *(reinterpret_cast<LoadConfiguration<uint32_t>*>(this->rawBinary_.data() + offset));
+void Parser::parse_debug_code_view() {
+  VLOG(VDEBUG) << "Parsing Debug Code View";
+  Debug& debug_info = this->binary_->debug();
+
+  const uint32_t debug_off = debug_info.pointerto_rawdata();
+  if (not this->stream_->can_read<uint32_t>(debug_off)) {
+    return;
+  }
+
+  const CODE_VIEW_SIGNATURES signature = static_cast<CODE_VIEW_SIGNATURES>(this->stream_->peek<uint32_t>(debug_off));
+
+  switch (signature) {
+    case CODE_VIEW_SIGNATURES::CVS_PDB_70:
+      {
+
+        if (not this->stream_->can_read<pe_pdb_70>(debug_off)) {
+          break;
+        }
+        const pe_pdb_70& pdb_s = this->stream_->peek<pe_pdb_70>(debug_off);
+
+        std::string path = this->stream_->peek_string_at(debug_off + offsetof(pe_pdb_70, filename));
+
+        CodeViewPDB::signature_t sig;
+        std::copy(std::begin(pdb_s.signature), std::end(pdb_s.signature), std::begin(sig));
+        std::unique_ptr<CodeViewPDB> codeview{new CodeViewPDB{CodeViewPDB::from_pdb70(sig, pdb_s.age, path)}};
+
+        debug_info.code_view_ = codeview.release();
+        break;
+      }
+
+    default:
+      {
+        LOG(WARNING) << to_string(signature) << " is not implemented yet!";
+      }
+  }
+
+
 }
 
 
 //
-// Build Export
+// Parse Export
 //
-void Parser::build_exports(void) {
-  LOG(DEBUG) << "[+] Parsing exports";
-
-  this->binary_->has_exports_ = true;
+void Parser::parse_exports(void) {
+  VLOG(VDEBUG) << "[+] Parsing exports";
 
   uint32_t exports_rva    = this->binary_->data_directory(DATA_DIRECTORY::EXPORT_TABLE).RVA();
   uint32_t exports_offset = this->binary_->rva_to_offset(exports_rva);
   uint32_t exports_size   = this->binary_->data_directory(DATA_DIRECTORY::EXPORT_TABLE).size();
   std::pair<uint32_t, uint32_t> range = {exports_rva, exports_rva + exports_size};
 
-  // First Export directory
-  const pe_export_directory_table* export_directory_table = reinterpret_cast<const pe_export_directory_table*>(
-      this->stream_->read(exports_offset, sizeof(pe_export_directory_table)));
-
-  Export export_object = {export_directory_table};
-  uint32_t name_offset = this->binary_->rva_to_offset(export_directory_table->NameRVA);
-
-  try {
-    export_object.name_  = this->stream_->read_string(name_offset);
-  } catch (const LIEF::read_out_of_bound& e) {
-    LOG(WARNING) << e.what();
+  if (not this->stream_->can_read<pe_export_directory_table>(exports_offset)) {
+    return;
   }
 
 
+  // First Export directory
+  const pe_export_directory_table& export_directory_table = this->stream_->peek<pe_export_directory_table>(exports_offset);
+
+  Export export_object = &export_directory_table;
+  uint32_t name_offset = this->binary_->rva_to_offset(export_directory_table.NameRVA);
+  export_object.name_  = this->stream_->peek_string_at(name_offset);
+
   // Parse Ordinal name table
-  uint32_t ordinal_table_offset  = this->binary_->rva_to_offset(export_directory_table->OrdinalTableRVA);
-  const uint32_t nbof_name_ptr = export_directory_table->NumberOfNamePointers;
-  const uint16_t *ordinal_table = reinterpret_cast<const uint16_t*>(
-      this->stream_->read(ordinal_table_offset, nbof_name_ptr * sizeof(uint16_t)));
+  uint32_t ordinal_table_offset = this->binary_->rva_to_offset(export_directory_table.OrdinalTableRVA);
+  const uint32_t nbof_name_ptr  = export_directory_table.NumberOfNamePointers;
+  const uint16_t *ordinal_table = this->stream_->peek_array<uint16_t>(ordinal_table_offset, nbof_name_ptr);
+
+  if (ordinal_table == nullptr) {
+    LOG(ERROR) << "Ordinal table corrupted";
+    return;
+  }
 
 
   // Parse Address table
-  uint32_t address_table_offset = this->binary_->rva_to_offset(export_directory_table->ExportAddressTableRVA);
-  const uint32_t nbof_addr_entries = export_directory_table->AddressTableEntries;
-  const uint32_t *address_table = reinterpret_cast<const uint32_t*>(
-      this->stream_->read(address_table_offset, nbof_addr_entries * sizeof(uint32_t)));
+  uint32_t address_table_offset    = this->binary_->rva_to_offset(export_directory_table.ExportAddressTableRVA);
+  const uint32_t nbof_addr_entries = export_directory_table.AddressTableEntries;
+  const uint32_t *address_table    = this->stream_->peek_array<uint32_t>(address_table_offset, nbof_addr_entries);
+
+  if (address_table == nullptr) {
+    LOG(ERROR) << "Address table corrupted";
+    return;
+  }
 
   if (nbof_addr_entries < nbof_name_ptr) {
-    throw corrupted("More exported names than addresses");
+    LOG(ERROR) << "More exported names than addresses";
+    return;
   }
 
   // Parse Export name table
-  uint32_t name_table_offset = this->binary_->rva_to_offset(export_directory_table->NamePointerRVA);
-  const uint32_t *name_table  = reinterpret_cast<const uint32_t*>(
-      this->stream_->read(name_table_offset, nbof_name_ptr * sizeof(uint32_t)));
-
+  uint32_t name_table_offset = this->binary_->rva_to_offset(export_directory_table.NamePointerRVA);
+  const uint32_t *name_table = this->stream_->peek_array<uint32_t>(name_table_offset, nbof_name_ptr);
 
 
   // Export address table (EXTERN)
@@ -613,14 +679,10 @@ void Parser::build_exports(void) {
       uint32_t name_offset = this->binary_->rva_to_offset(value);
 
       ExportEntry entry;
-      try {
-        entry.name_ = this->stream_->read_string(name_offset);
-      } catch (const LIEF::read_out_of_bound& e) {
-        LOG(WARNING) << e.what();
-      }
+      entry.name_      = this->stream_->peek_string_at(name_offset);
       entry.address_   = 0;
       entry.is_extern_ = true;
-      entry.ordinal_   = i + export_directory_table->OrdinalBase;
+      entry.ordinal_   = i + export_directory_table.OrdinalBase;
       export_object.entries_.push_back(std::move(entry));
 
     }
@@ -629,534 +691,50 @@ void Parser::build_exports(void) {
 
   for (size_t i = 0; i < nbof_name_ptr; ++i) {
     if (ordinal_table[i] >= nbof_addr_entries) {
-      throw corrupted("Export ordinal is outside the address table");
+      LOG(ERROR) << "Export ordinal is outside the address table";
+      break;
     }
 
     uint32_t name_offset = this->binary_->rva_to_offset(name_table[i]);
-    std::string name  = "";
-    try {
-      name = this->stream_->read_string(name_offset);
-    } catch (const LIEF::read_out_of_bound& e) {
-      LOG(WARNING) << e.what();
-    }
+    std::string name = this->stream_->peek_string_at(name_offset);
 
     ExportEntry entry;
     entry.name_      = name;
     entry.is_extern_ = false;
-    entry.ordinal_   = ordinal_table[i] + export_directory_table->OrdinalBase;
+    entry.ordinal_   = ordinal_table[i] + export_directory_table.OrdinalBase;
     entry.address_   = address_table[ordinal_table[i]];
     export_object.entries_.push_back(std::move(entry));
   }
 
   this->binary_->export_ = std::move(export_object);
+  this->binary_->has_exports_ = true;
 
 }
 
-void Parser::build_signature(void) {
-  LOG(DEBUG) << "[+] Parsing signature";
+void Parser::parse_signature(void) {
+  VLOG(VDEBUG) << "[+] Parsing signature";
 
   /*** /!\ In this data directory, RVA is used as an **OFFSET** /!\ ****/
   /*********************************************************************/
   const uint32_t signature_offset  = this->binary_->data_directory(DATA_DIRECTORY::CERTIFICATE_TABLE).RVA();
-  const uint32_t signature_size = this->binary_->data_directory(DATA_DIRECTORY::CERTIFICATE_TABLE).size();
-  LOG(DEBUG) << "Signature Offset: 0x" << std::hex << signature_offset;
-  LOG(DEBUG) << "Signature Size: 0x" << std::hex << signature_size;
+  const uint32_t signature_size    = this->binary_->data_directory(DATA_DIRECTORY::CERTIFICATE_TABLE).size();
+  VLOG(VDEBUG) << "Signature Offset: 0x" << std::hex << signature_offset;
+  VLOG(VDEBUG) << "Signature Size: 0x" << std::hex << signature_size;
 
-  const uint8_t* signature_ptr = reinterpret_cast<const uint8_t*>(this->stream_->read(signature_offset, signature_size));
+  const uint8_t* signature_ptr = this->stream_->peek_array<uint8_t>(signature_offset, signature_size);
+  if (signature_ptr == nullptr) {
+    return;
+  }
   std::vector<uint8_t> raw_signature = {signature_ptr, signature_ptr + signature_size};
 
   //TODO: Deal with header (+8)
-#if 0
-  const uint8_t* signature_ptr = reinterpret_cast<const uint8_t*>(this->stream_->read(signature_offset + 8, signature_size - 8));
-  const uint8_t* end = signature_ptr + signature_size - 8;
-  Signature signature;
-  mbedtls_asn1_buf buf;
-  int ret = 0;
-  size_t tag;
-
-  uint8_t* p = const_cast<uint8_t*>(signature_ptr);
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  buf.tag = *p;
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &buf.len, MBEDTLS_ASN1_OID)) != 0) {
-    throw corrupted("Error while reading tag");
-  }
-
-  buf.p = p;
-  char oid_str[256] = { 0 };
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &buf);
-  LOG(DEBUG) << "OID (signedData): " << oid_str;
-  p += buf.len;
-
-
-  if (MBEDTLS_OID_CMP(MBEDTLS_OID_PKCS7_SIGNED_DATA, &buf) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  // Version
-  // =======
-  int version;
-  if ((ret = mbedtls_asn1_get_int(&p, end, &version)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  LOG(DEBUG) << "Version: " << std::dec << version;
-  LOG_IF(version != 1, WARNING) << "Version should be equal to 1 (" << std::dec << version << ")";
-  signature.version_ = static_cast<uint32_t>(version);
-
-
-  // Algo (digestAlgorithms)
-  // =======================
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SET)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  mbedtls_asn1_buf alg_oid;
-  if ((ret = mbedtls_asn1_get_alg_null(&p, end, &alg_oid)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &alg_oid);
-
-  LOG(DEBUG) << "digestAlgorithms: " << oid_str;
-
-  signature.digest_algorithm_ = oid_str;
-
-  // contentInfo
-  // |_ contentType
-  // |_ content (SpcIndirectDataContent)
-  // ===================================
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  ContentInfo content_info;
-
-
-  // Content type
-  // ------------
-  mbedtls_asn1_buf content_type_oid;
-  content_type_oid.tag = *p;
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &content_type_oid.len, MBEDTLS_ASN1_OID)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.p = p;
-
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &content_type_oid);
-
-  if (MBEDTLS_OID_CMP(MBEDTLS_SPC_INDIRECT_DATA_OBJID, &content_type_oid) != 0) {
-    throw corrupted(std::string(oid_str) + " is not SPC_INDIRECT_DATA_OBJID");
-  }
-  LOG(DEBUG) << "contentType: " << oid_str;
-  content_info.content_type_ = oid_str;
-  p += content_type_oid.len;
-
-  // content - SpcIndirectDataContent
-  // |_ SpcAttributeTypeAndOptionalValue
-  // |_ DigestInfo
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  LOG(DEBUG) << "Parsing SpcIndirectDataContent (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  // SpcAttributeTypeAndOptionalValue
-  // |_ SPC_PE_IMAGE_DATAOBJ
-  // |_ SpcPeImageData
-  // ++++++++++++++++++++++++++++++++
-  LOG(DEBUG) << "Parsing SpcAttributeTypeAndOptionalValue (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.tag = *p;
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &content_type_oid.len, MBEDTLS_ASN1_OID)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  content_type_oid.p = p;
-
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &content_type_oid);
-  LOG(DEBUG) << "SpcAttributeTypeAndOptionalValue->type " << oid_str;
-
-  content_info.type_ = oid_str;
-  p += content_type_oid.len;
-
-  // SpcPeImageData
-  // |_ SpcPeImageFlags
-  // |_ SpcLink
-  // ++++++++++++++
-  LOG(DEBUG) << "Parsing SpcPeImageData (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  // SpcPeImageFlags
-  // ^^^^^^^^^^^^^^^
-  LOG(DEBUG) << "Parsing SpcPeImageFlags (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_BIT_STRING)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  p += tag; // skip
-
-  // SpcLink
-  // ^^^^^^^
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  p += tag; // skip
-
-  // DigestInfo
-  // ++++++++++
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_alg_null(&p, end, &alg_oid)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &alg_oid);
-  LOG(DEBUG) << "DigestInfo->digestAlgorithm: " << oid_str;
-
-  content_info.digest_algorithm_ = oid_str;
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_OCTET_STRING)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  content_info.digest_ = {p, p + tag};
-
-  //TODO: Read hash
-  p += tag;
-
-  signature.content_info_ = std::move(content_info);
-
-  // Certificates
-  // ============
-  LOG(DEBUG) << "Parsing Certificates (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  uint8_t* cert_end = p + tag;
-  char buffer[1024];
-  while (p < cert_end) {
-    std::memset(buffer, 0, sizeof(buffer));
-
-    mbedtls_x509_crt* ca = new mbedtls_x509_crt{};
-    mbedtls_x509_crt_init(ca);
-    mbedtls_x509_crt_parse_der(ca, p, end - p);
-
-    signature.certificates_.emplace_back(ca);
-
-    mbedtls_x509_crt_info(buffer, sizeof(buffer), "", ca);
-    LOG(DEBUG) << std::endl << buffer << std::endl;
-
-    if (ca->raw.len <= 0) {
-      break;
-    }
-    p += ca->raw.len;
-  }
-
-
-  // signerInfo
-  // ==========
-  SignerInfo signer_info;
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SET | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_int(&p, end, &version)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  LOG(DEBUG) << "Version: " << std::dec << version;
-  LOG_IF(version != 1, WARNING) << "SignerInfo's version should be equal to 1 (" << std::dec << version << ")";
-  signer_info.version_ = version;
-
-  // issuerAndSerialNumber
-  // ---------------------
-  LOG(DEBUG) << "Parsing issuerAndSerialNumber (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  // Name
-  // ~~~~
-  std::vector<std::pair<std::string, std::string>> issuer_name;
-  uint8_t* p_end = p + tag;
-  while(p < p_end) {
-    if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SET | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-      throw corrupted("Signature corrupted");
-    }
-
-    if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-      throw corrupted("Signature corrupted");
-    }
-
-    content_type_oid.tag = *p;
-
-    if ((ret = mbedtls_asn1_get_tag(&p, end, &content_type_oid.len, MBEDTLS_ASN1_OID)) != 0) {
-      throw corrupted("Signature corrupted");
-    }
-    content_type_oid.p = p;
-
-    std::memset(oid_str, 0, sizeof(oid_str));
-    mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &content_type_oid);
-
-    LOG(DEBUG) << "Component ID: " << oid_str;
-    p += content_type_oid.len;
-
-    if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_PRINTABLE_STRING)) != 0) {
-      throw corrupted("Signature corrupted");
-    }
-
-    std::string name{reinterpret_cast<char*>(p), tag};
-    issuer_name.emplace_back(oid_str, name);
-    LOG(DEBUG) << "Name: " << name;
-    p += tag;
-  }
-
-  // CertificateSerialNumber (issuer SN)
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  mbedtls_mpi certificate_number;
-  mbedtls_mpi_init(&certificate_number);
-  if ((ret = mbedtls_asn1_get_mpi(&p, end, &certificate_number)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  std::vector<uint8_t> certificate_sn(mbedtls_mpi_size(&certificate_number), 0);
-  mbedtls_mpi_write_binary(&certificate_number, certificate_sn.data(), certificate_sn.size());
-  mbedtls_mpi_free(&certificate_number);
-
-  signer_info.issuer_ = {issuer_name, certificate_sn};
-
-
-
-  // digestAlgorithm
-  // ---------------
-  LOG(DEBUG) << "Parsing digestAlgorithm (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-  if ((ret = mbedtls_asn1_get_alg_null(&p, end, &alg_oid)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &alg_oid);
-  LOG(DEBUG) << "signerInfo->digestAlgorithm " << oid_str;
-
-  signer_info.digest_algorithm_ = oid_str;
-
-  // authenticatedAttributes
-  // |_ contentType
-  // |_ messageDigest
-  // |_ SpcSpOpusInfo
-  // -----------------------
-  AuthenticatedAttributes authenticated_attributes;
-
-  LOG(DEBUG) << "Parsing authenticatedAttributes (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  // contentType (1.2.840.113549.1.9.3)
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.tag = *p;
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &content_type_oid.len, MBEDTLS_ASN1_OID)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  content_type_oid.p = p;
-
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &content_type_oid);
-
-  LOG(DEBUG) << oid_str; // 1.2.840.113549.1.9.3 (PKCS #9 contentType)
-
-  p += content_type_oid.len;
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SET | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.tag = *p;
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &content_type_oid.len, MBEDTLS_ASN1_OID)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.p = p;
-
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &content_type_oid);
-
-  LOG(DEBUG) << oid_str; // 1.2.840.113549.1.9.4
-  p += content_type_oid.len;
-  //authenticated_attributes.content_type_ = oid_str;
-
-  // TODO
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  p += tag;
-
-
-  // messageDigest (Octet string)
-  // |_ OID (PKCS #9 Message Disgest)
-  // |_ SET -> OCTET STING
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  LOG(DEBUG) << "Parsing messageDigest (offset: " << std::dec << (reinterpret_cast<size_t>(p) - reinterpret_cast<size_t>(signature_ptr)) << ")";
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.tag = *p;
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &content_type_oid.len, MBEDTLS_ASN1_OID)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  content_type_oid.p = p;
-
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &content_type_oid);
-  LOG(DEBUG) << oid_str << " (" << oid_to_string(oid_str) << ")"; // 1.2.840.113549.1.9.4
-  p += content_type_oid.len;
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SET | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_OCTET_STRING)) != 0) {
-    throw corrupted("Signature corrupted: Can't read 'ASN1_OCTET_STRING'");
-  }
-  authenticated_attributes.message_digest_ = {p, p + tag};
-  p += tag;
-
-
-  // SpcSpOpusInfo
-  // |_ programName (utf16)
-  // |_ moreInfo
-  // ~~~~~~~~~~~~~~~~~~~~~~
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.tag = *p;
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &content_type_oid.len, MBEDTLS_ASN1_OID)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  content_type_oid.p = p;
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &content_type_oid);
-  LOG(DEBUG) << oid_str; // 1.3.6.1.4.1.311.2.1.12 (SpcSpOpusInfoObjId)
-  p += content_type_oid.len;
-
-  // programName
-  // +++++++++++
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SET | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_SEQUENCE | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_ASN1_CONSTRUCTED)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  std::u16string progname{reinterpret_cast<char16_t*>(p + 1), tag / 2}; // programName
-  authenticated_attributes.program_name_ = progname;
-  LOG(DEBUG) << "ProgName " << u16tou8(progname);
-  p += tag;
-
-  // moreInfo
-  // ++++++++
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_ASN1_BOOLEAN )) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_CONTEXT_SPECIFIC)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  std::string more_info{reinterpret_cast<char*>(p), tag}; // moreInfo
-  authenticated_attributes.more_info_ = more_info;
-  LOG(DEBUG) << more_info;
-  p += tag;
-
-  signer_info.authenticated_attributes_ = std::move(authenticated_attributes);
-
-  // digestEncryptionAlgorithm
-  // -------------------------
-  if ((ret = mbedtls_asn1_get_alg_null(&p, end, &alg_oid)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-  std::memset(oid_str, 0, sizeof(oid_str));
-  mbedtls_oid_get_numeric_string(oid_str, sizeof(oid_str), &alg_oid);
-  signer_info.signature_algorithm_ = oid_str;
-
-  LOG(DEBUG) << "digestEncryptionAlgorithm: " << oid_str;
-
-  // encryptedDigest
-  // ---------------
-  if ((ret = mbedtls_asn1_get_tag(&p, end, &tag, MBEDTLS_ASN1_OCTET_STRING)) != 0) {
-    throw corrupted("Signature corrupted");
-  }
-
-  signer_info.encrypted_digest_ = {p, p + tag};
-  p += tag;
-
-  //TODO:
-  // unauthenticatedAttributes
-
-
-  signature.signer_info_ = std::move(signer_info);
-  LOG(DEBUG) << "Signature: " << std::endl << signature;
-#endif
-  this->binary_->signature_ = SignatureParser::parse(raw_signature);
+  this->binary_->signature_     = SignatureParser::parse(raw_signature);
   this->binary_->has_signature_ = true;
 }
 
 
-void Parser::build_overlay(void) {
-  LOG(DEBUG) << "Parsing Overlay";
+void Parser::parse_overlay(void) {
+  VLOG(VDEBUG) << "Parsing Overlay";
   const uint64_t last_section_offset = std::accumulate(
       std::begin(this->binary_->sections_),
       std::end(this->binary_->sections_), 0,
@@ -1164,16 +742,14 @@ void Parser::build_overlay(void) {
         return std::max<uint64_t>(section->offset() + section->size(), offset);
       });
 
-  LOG(DEBUG) << "Overlay offset: 0x" << std::hex << last_section_offset;
+  VLOG(VDEBUG) << "Overlay offset: 0x" << std::hex << last_section_offset;
 
   if (last_section_offset < this->stream_->size()) {
     const uint64_t overlay_size = this->stream_->size() - last_section_offset;
 
-    LOG(DEBUG) << "Overlay size: " << std::dec << overlay_size;
+    VLOG(VDEBUG) << "Overlay size: " << std::dec << overlay_size;
 
-    const uint8_t* ptr_to_overlay = reinterpret_cast<const uint8_t*>(this->stream_->read(
-        last_section_offset,
-        overlay_size));
+    const uint8_t* ptr_to_overlay = this->stream_->peek_array<uint8_t>(last_section_offset, overlay_size);
 
     this->binary_->overlay_ = {
         ptr_to_overlay,

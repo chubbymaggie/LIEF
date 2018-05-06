@@ -15,7 +15,7 @@
  */
 #include <iomanip>
 
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/MachO/hash.hpp"
 
 #include "LIEF/MachO/DylibCommand.hpp"
 
@@ -28,12 +28,11 @@ DylibCommand::DylibCommand(const DylibCommand&) = default;
 DylibCommand::~DylibCommand(void) = default;
 
 DylibCommand::DylibCommand(const dylib_command *cmd) :
+  LoadCommand::LoadCommand{static_cast<LOAD_COMMAND_TYPES>(cmd->cmd), cmd->cmdsize},
   timestamp_{cmd->dylib.timestamp},
   currentVersion_{cmd->dylib.current_version},
   compatibilityVersion_{cmd->dylib.compatibility_version}
 {
-  this->command_ = static_cast<LOAD_COMMAND_TYPES>(cmd->cmd);
-  this->size_    = cmd->cmdsize;
 }
 
 const std::string& DylibCommand::name(void) const {
@@ -70,12 +69,7 @@ void DylibCommand::compatibility_version(uint32_t compatibilityVersion) {
 
 
 void DylibCommand::accept(Visitor& visitor) const {
-  LoadCommand::accept(visitor);
-
-  visitor.visit(this->name());
-  visitor.visit(this->timestamp());
-  visitor.visit(this->current_version());
-  visitor.visit(this->compatibility_version());
+  visitor.visit(*this);
 }
 
 bool DylibCommand::operator==(const DylibCommand& rhs) const {

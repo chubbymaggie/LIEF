@@ -18,6 +18,7 @@ set(LIEF_MACHO_SRC
   "${CMAKE_CURRENT_LIST_DIR}/Binary.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/UUIDCommand.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/Symbol.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/FatBinary.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/EnumToString.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/Header.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/DynamicSymbolCommand.cpp"
@@ -37,10 +38,23 @@ set(LIEF_MACHO_SRC
   "${CMAKE_CURRENT_LIST_DIR}/BinaryParser.tcc"
   "${CMAKE_CURRENT_LIST_DIR}/FunctionStarts.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/SourceVersion.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/VersionMin.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/Relocation.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/RelocationObject.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/RelocationDyld.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/BindingInfo.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/ExportInfo.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/ThreadCommand.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/RPathCommand.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/ParserConfig.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/hash.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/CodeSignature.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/DataInCode.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/DataCodeEntry.cpp"
 )
 
 set(LIEF_MACHO_INCLUDE_FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/FatBinary.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/Binary.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/BinaryParser.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/Builder.hpp"
@@ -63,11 +77,25 @@ set(LIEF_MACHO_INCLUDE_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/include/LIEF/MachO/Structures.hpp"
   "${CMAKE_CURRENT_BINARY_DIR}/include/LIEF/MachO/enums.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/SourceVersion.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/VersionMin.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/Relocation.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/RelocationObject.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/RelocationDyld.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/BindingInfo.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/ExportInfo.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/RPathCommand.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/ThreadCommand.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/ParserConfig.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/hash.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/CodeSignature.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/DataInCode.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/LIEF/MachO/DataCodeEntry.hpp"
   )
 
 source_group("Header Files\\MachO" FILES ${LIEF_MACHO_INCLUDE_FILES})
 source_group("Source Files\\MachO" FILES ${LIEF_MACHO_SRC})
 
-target_sources(LIB_LIEF_STATIC PRIVATE ${LIEF_MACHO_SRC} ${LIEF_MACHO_INCLUDE_FILES})
-target_sources(LIB_LIEF_SHARED PRIVATE ${LIEF_MACHO_SRC} ${LIEF_MACHO_INCLUDE_FILES})
+if (LIEF_MACHO)
+  target_sources(LIB_LIEF_STATIC PRIVATE ${LIEF_MACHO_SRC} ${LIEF_MACHO_INCLUDE_FILES})
+  target_sources(LIB_LIEF_SHARED PRIVATE ${LIEF_MACHO_SRC} ${LIEF_MACHO_INCLUDE_FILES})
+endif()

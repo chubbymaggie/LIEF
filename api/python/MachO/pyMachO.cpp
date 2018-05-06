@@ -23,10 +23,10 @@
 void init_MachO_module(py::module& m) {
   py::module LIEF_MachO_module = m.def_submodule("MachO", "Python API for MachO");
 
-  py::bind_vector<std::vector<Binary*>>(m, "macho_list");
-
   // Objects
+  init_MachO_ParserConfig_class(LIEF_MachO_module);
   init_MachO_Parser_class(LIEF_MachO_module);
+  init_MachO_FatBinary_class(LIEF_MachO_module);
   init_MachO_Binary_class(LIEF_MachO_module);
   init_MachO_Header_class(LIEF_MachO_module);
   init_MachO_LoadCommand_class(LIEF_MachO_module);
@@ -34,14 +34,26 @@ void init_MachO_module(py::module& m) {
   init_MachO_SegmentCommand_class(LIEF_MachO_module);
   init_MachO_Section_class(LIEF_MachO_module);
   init_MachO_Symbol_class(LIEF_MachO_module);
+  init_MachO_SymbolCommand_class(LIEF_MachO_module);
   init_MachO_UUIDCommand_class(LIEF_MachO_module);
   init_MachO_MainCommand_class(LIEF_MachO_module);
   init_MachO_DylinkerCommand_class(LIEF_MachO_module);
   init_MachO_DyldInfo_class(LIEF_MachO_module);
   init_MachO_FunctionStarts_class(LIEF_MachO_module);
   init_MachO_SourceVersion_class(LIEF_MachO_module);
+  init_MachO_VersionMin_class(LIEF_MachO_module);
   init_MachO_Relocation_class(LIEF_MachO_module);
+  init_MachO_RelocationObject_class(LIEF_MachO_module);
+  init_MachO_RelocationDyld_class(LIEF_MachO_module);
+  init_MachO_BindingInfo_class(LIEF_MachO_module);
+  init_MachO_ExportInfo_class(LIEF_MachO_module);
+  init_MachO_ThreadCommand_class(LIEF_MachO_module);
+  init_MachO_RPathCommand_class(LIEF_MachO_module);
+  init_MachO_DynamicSymbolCommand_class(LIEF_MachO_module);
+  init_MachO_CodeSignature_class(LIEF_MachO_module);
 
+  init_MachO_DataInCode_class(LIEF_MachO_module);
+  init_MachO_DataCodeEntry_class(LIEF_MachO_module);
 
   // Enums
   init_MachO_Structures_enum(LIEF_MachO_module);

@@ -19,7 +19,7 @@
 #include <vector>
 #include <iostream>
 
-#include "LIEF/Visitable.hpp"
+#include "LIEF/Object.hpp"
 #include "LIEF/visibility.h"
 
 namespace LIEF {
@@ -29,15 +29,29 @@ class Parser;
 class Builder;
 class Binary;
 
-class DLL_PUBLIC Note : public Visitable {
+class LIEF_API Note : public Object {
 
   friend class Parser;
   friend class Builder;
   friend class Binary;
 
   public:
+
+  //! Container used to handle the description data
+  using description_t = std::vector<uint8_t>;
+
+  //! Type of version
+  using version_t = std::array<uint32_t, 3>;
+
+  public:
+
+  //! Default value if the version is unknown
+  static constexpr version_t UNKNOWN_VERSION = {{0, 0, 0}};
+
+  public:
   Note(void);
-  Note(const std::string& name, uint32_t type, const std::vector<uint8_t>& description);
+  Note(const std::string& name, uint32_t type, const description_t& description);
+  Note(const std::string& name, NOTE_TYPES type, const description_t& description);
   Note& operator=(const Note& copy);
   Note(const Note& copy);
   virtual ~Note(void);
@@ -46,32 +60,39 @@ class DLL_PUBLIC Note : public Visitable {
   const std::string& name(void) const;
 
   //! @brief Return the type of the note. It could be one of the NOTE_TYPES values
-  uint32_t type(void) const;
+  NOTE_TYPES type(void) const;
 
   //! @brief Return the description associated with the note
-  const std::vector<uint8_t>& description(void) const;
+  const description_t& description(void) const;
+
+  description_t& description(void);
 
   //! @brief Return the target ABI. Require a NT_GNU_ABI_TAG type
   NOTE_ABIS abi(void) const;
 
   //! @brief Return the target version as ``<Major, Minor, Patch>``.  Require a NT_GNU_ABI_TAG type
-  std::tuple<uint32_t, uint32_t, uint32_t> version(void) const;
+  version_t version(void) const;
 
   void name(const std::string& name);
-  void type(uint32_t type);
-  void description(const std::vector<uint8_t>& description);
+  void type(NOTE_TYPES type);
+  void description(const description_t& description);
+
+  //! @brief Sizeof the **raw** note
+  uint64_t size(void) const;
+
+  virtual void dump(std::ostream& os) const;
 
   bool operator==(const Note& rhs) const;
   bool operator!=(const Note& rhs) const;
 
   virtual void accept(Visitor& visitor) const override;
 
-  DLL_PUBLIC friend std::ostream& operator<<(std::ostream& os, const Note& note);
+  LIEF_API friend std::ostream& operator<<(std::ostream& os, const Note& note);
 
-  private:
-  std::string          name_;
-  uint32_t             type_;
-  std::vector<uint8_t> description_;
+  protected:
+  std::string   name_;
+  NOTE_TYPES    type_;
+  description_t description_;
 };
 
 

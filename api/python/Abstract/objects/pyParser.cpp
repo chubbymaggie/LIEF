@@ -22,8 +22,52 @@
 void init_LIEF_Parser_class(py::module& m) {
 
     m.def("parse",
-      &LIEF::Parser::parse,
+      static_cast<LIEF::Binary* (*) (const std::string&)>(&LIEF::Parser::parse),
       "Parse the given binary and return a " RST_CLASS_REF(lief.Binary) " object",
       "filepath"_a,
+      py::return_value_policy::take_ownership);
+
+  m.def("parse",
+      static_cast<LIEF::Binary* (*) (const std::vector<uint8_t>&, const std::string&)>(&LIEF::Parser::parse),
+      "Parse the given binary and return a " RST_CLASS_REF(lief.Binary) " object",
+      "raw"_a, "name"_a = "",
+      py::return_value_policy::take_ownership);
+
+
+  m.def("parse",
+      [] (py::object byteio, const std::string& name) {
+        auto&& io = py::module::import("io");
+        auto&& RawIOBase = io.attr("RawIOBase");
+        auto&& BufferedIOBase = io.attr("BufferedIOBase");
+        auto&& TextIOBase = io.attr("TextIOBase");
+
+        py::object rawio;
+
+
+        if (py::isinstance(byteio, RawIOBase)) {
+          rawio = byteio;
+        }
+
+        else if (py::isinstance(byteio, BufferedIOBase)) {
+          rawio = byteio.attr("raw");
+        }
+
+        else if (py::isinstance(byteio, TextIOBase)) {
+          rawio = byteio.attr("buffer").attr("raw");
+        }
+
+        else {
+          throw py::type_error(py::repr(byteio).cast<std::string>().c_str());
+        }
+
+        std::string raw_str = static_cast<py::bytes>(rawio.attr("readall")());
+        std::vector<uint8_t> raw = {
+          std::make_move_iterator(std::begin(raw_str)),
+          std::make_move_iterator(std::end(raw_str))};
+
+        return LIEF::Parser::parse(std::move(raw), name);
+      },
+      "io"_a,
+      "name"_a = "",
       py::return_value_policy::take_ownership);
 }

@@ -19,7 +19,7 @@ namespace LIEF {
 namespace ELF {
 
 void init_c_dynamic_symbols(Elf_Binary_t* c_binary, Binary* binary) {
-  it_symbols dyn_symb = binary->get_dynamic_symbols();
+  it_symbols dyn_symb = binary->dynamic_symbols();
 
   c_binary->dynamic_symbols = static_cast<Elf_Symbol_t**>(
       malloc((dyn_symb.size() + 1) * sizeof(Elf_Symbol_t**)));
@@ -28,8 +28,8 @@ void init_c_dynamic_symbols(Elf_Binary_t* c_binary, Binary* binary) {
     Symbol& b_sym = dyn_symb[i];
     c_binary->dynamic_symbols[i] = static_cast<Elf_Symbol_t*>(malloc(sizeof(Elf_Symbol_t)));
     c_binary->dynamic_symbols[i]->name        = b_sym.name().c_str();
-    c_binary->dynamic_symbols[i]->type        = static_cast<enum ::SYMBOL_TYPES>(b_sym.type());
-    c_binary->dynamic_symbols[i]->binding     = static_cast<enum ::SYMBOL_BINDINGS>(b_sym.binding());
+    c_binary->dynamic_symbols[i]->type        = static_cast<enum LIEF_ELF_ELF_SYMBOL_TYPES>(b_sym.type());
+    c_binary->dynamic_symbols[i]->binding     = static_cast<enum LIEF_ELF_SYMBOL_BINDINGS>(b_sym.binding());
     c_binary->dynamic_symbols[i]->other       = b_sym.other();
     c_binary->dynamic_symbols[i]->shndx       = b_sym.shndx();
     c_binary->dynamic_symbols[i]->value       = b_sym.value();
@@ -46,7 +46,7 @@ void init_c_dynamic_symbols(Elf_Binary_t* c_binary, Binary* binary) {
 
 
 void init_c_static_symbols(Elf_Binary_t* c_binary, Binary* binary) {
-  it_symbols static_symb = binary->get_static_symbols();
+  it_symbols static_symb = binary->static_symbols();
 
   c_binary->static_symbols = static_cast<Elf_Symbol_t**>(
       malloc((static_symb.size() + 1) * sizeof(Elf_Symbol_t**)));
@@ -55,8 +55,8 @@ void init_c_static_symbols(Elf_Binary_t* c_binary, Binary* binary) {
     Symbol& b_sym = static_symb[i];
     c_binary->static_symbols[i]              = static_cast<Elf_Symbol_t*>(malloc(sizeof(Elf_Symbol_t)));
     c_binary->static_symbols[i]->name        = b_sym.name().c_str();
-    c_binary->static_symbols[i]->type        = static_cast<enum ::SYMBOL_TYPES>(b_sym.type());
-    c_binary->static_symbols[i]->binding     = static_cast<enum ::SYMBOL_BINDINGS>(b_sym.binding());
+    c_binary->static_symbols[i]->type        = static_cast<enum LIEF_ELF_ELF_SYMBOL_TYPES>(b_sym.type());
+    c_binary->static_symbols[i]->binding     = static_cast<enum LIEF_ELF_SYMBOL_BINDINGS>(b_sym.binding());
     c_binary->static_symbols[i]->other       = b_sym.other();
     c_binary->static_symbols[i]->shndx       = b_sym.shndx();
     c_binary->static_symbols[i]->value       = b_sym.value();

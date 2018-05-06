@@ -38,7 +38,7 @@ void init_PE_Binary_class(py::module& m) {
     .def(py::init<const std::string &, PE_TYPE>())
 
     .def_property_readonly("sections",
-        static_cast<no_const_getter<it_sections>>(&Binary::get_sections),
+        static_cast<no_const_getter<it_sections>>(&Binary::sections),
         "Return binary's " RST_CLASS_REF(lief.PE.Section) " sections",
         py::return_value_policy::reference)
 
@@ -58,12 +58,12 @@ void init_PE_Binary_class(py::module& m) {
         py::return_value_policy::reference)
 
     .def_property_readonly("virtual_size",
-        &Binary::get_virtual_size,
+        &Binary::virtual_size,
         "Binary size when mapped in memory.\n\n"
         "This value should matches :attr:`~lief.PE.OptionalHeader.sizeof_image`")
 
     .def_property_readonly("sizeof_headers",
-        &Binary::get_sizeof_headers,
+        &Binary::sizeof_headers,
         "Size of all PE headers")
 
     .def("rva_to_offset",
@@ -124,15 +124,16 @@ void init_PE_Binary_class(py::module& m) {
     .def_property_readonly("has_relocations", &Binary::has_relocations,
         "``True`` if the current binary use " RST_CLASS_REF(lief.PE.Relocation) "")
 
-    .def_property_readonly("has_configurations", &Binary::has_configuration,
-        "``True`` if the current binary has " RST_CLASS_REF(lief.PE.Configuration) "")
+    .def_property_readonly("has_configuration", &Binary::has_configuration,
+        "``True`` if the current binary has " RST_CLASS_REF(lief.PE.LoadConfiguration) "")
 
     .def_property_readonly("has_signature", &Binary::has_signature,
         "``True`` if the binary is signed (" RST_CLASS_REF(lief.PE.Signature) ")")
 
-    .def("predict_function_rva", &Binary::predict_function_rva,
+    .def("predict_function_rva",
+        static_cast<uint32_t(Binary::*)(const std::string&, const std::string&)>(&Binary::predict_function_rva),
         "Try to predict the RVA of the given function name in the given import library name",
-        py::arg("library"), py::arg("function"))
+        "library"_a, "function"_a)
 
     .def_property_readonly("signature",
         static_cast<const Signature& (Binary::*)(void) const>(&Binary::signature),
@@ -141,8 +142,13 @@ void init_PE_Binary_class(py::module& m) {
 
 
     .def_property_readonly("debug",
-        static_cast<Debug& (Binary::*)(void)>(&Binary::get_debug),
+        static_cast<Debug& (Binary::*)(void)>(&Binary::debug),
         "Return the " RST_CLASS_REF(lief.PE.Debug) " object",
+        py::return_value_policy::reference)
+
+    .def_property_readonly("load_configuration",
+        static_cast<LoadConfiguration& (Binary::*)(void)>(&Binary::load_configuration),
+        "Return the " RST_CLASS_REF(lief.PE.LoadConfiguration) " object",
         py::return_value_policy::reference)
 
     .def("get_export",
@@ -164,7 +170,7 @@ void init_PE_Binary_class(py::module& m) {
     .def("add_section",
         &Binary::add_section,
         "Add a " RST_CLASS_REF(lief.PE.Section) " to the binary.",
-        "section"_a, py::arg("type") = SECTION_TYPES::UNKNOWN,
+        "section"_a, py::arg("type") = PE_SECTION_TYPES::UNKNOWN,
         py::return_value_policy::reference)
 
     //.def("delete_section", (void (Binary::*)(const std::string&)) &Binary::delete_section)
@@ -212,11 +218,11 @@ void init_PE_Binary_class(py::module& m) {
         py::return_value_policy::reference)
 
     .def_property_readonly("resources_manager",
-        static_cast<no_const_getter<ResourcesManager>>(&Binary::get_resources_manager),
+        static_cast<no_const_getter<ResourcesManager>>(&Binary::resources_manager),
         "Return the " RST_CLASS_REF(lief.PE.ResourcesManager) " to manage resources")
 
     .def_property_readonly("resources",
-        static_cast<no_const_getter<ResourceNode&>>(&Binary::get_resources),
+        static_cast<no_const_getter<ResourceNode&>>(&Binary::resources),
         "Return the " RST_CLASS_REF(lief.PE.ResourceNode) " tree",
         py::return_value_policy::reference)
 

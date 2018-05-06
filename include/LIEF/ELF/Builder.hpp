@@ -30,7 +30,7 @@ namespace LIEF {
 namespace ELF {
 
 //! @brief Class which take a ELF::Binary object and reconstruct a valid binary
-class DLL_PUBLIC Builder {
+class LIEF_API Builder {
   public:
     Builder(Binary *binary);
 
@@ -49,7 +49,7 @@ class DLL_PUBLIC Builder {
     void build(void);
 
     template<typename ELF_T>
-    void build_header(void);
+    void build(const Header& header);
 
     template<typename ELF_T>
     void build_sections(void);
@@ -95,12 +95,28 @@ class DLL_PUBLIC Builder {
     template<typename T, typename HANDLER>
     std::vector<std::string> optimize(const HANDLER& e);
 
+    template<typename ELF_T>
     void build_symbol_version(void);
+
+    template<typename ELF_T>
+    void build_interpreter(void);
+
+    template<typename ELF_T>
+    void build_notes(void);
+
+    void build(NOTE_TYPES type);
+
+    size_t note_offset(const Note& note);
 
     bool empties_gnuhash_;
 
+    template<typename ELF_T>
+    void relocate_dynamic_array(DynamicEntryArray& entry_array, DynamicEntry& entry_size);
+
     mutable vector_iostream ios_;
     Binary*           binary_;
+
+
 };
 
 } // namespace ELF

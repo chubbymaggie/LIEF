@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 
 namespace LIEF {
 namespace MachO {
@@ -31,13 +31,13 @@ bool Binary::has_command(void) const {
 }
 
 template<class T>
-T& Binary::get_command(void) {
+T& Binary::command(void) {
   static_assert(std::is_base_of<LoadCommand, T>::value, "Require inheritance of 'LoadCommand'");
-  return const_cast<T&>(static_cast<const Binary*>(this)->get_command<T>());
+  return const_cast<T&>(static_cast<const Binary*>(this)->command<T>());
 }
 
 template<class T>
-const T& Binary::get_command(void) const {
+const T& Binary::command(void) const {
   static_assert(std::is_base_of<LoadCommand, T>::value, "Require inheritance of 'LoadCommand'");
   if (not this->has_command<T>()) {
     throw not_found("Unable to find the " + std::string(typeid(T).name()));

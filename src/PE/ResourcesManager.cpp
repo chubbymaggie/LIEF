@@ -19,10 +19,10 @@
 
 #include "rang.hpp"
 
-#include "easylogging++.h"
+#include "LIEF/logging++.hpp"
 
 #include "LIEF/exception.hpp"
-#include "LIEF/visitors/Hash.hpp"
+#include "LIEF/PE/hash.hpp"
 #include "LIEF/utils.hpp"
 
 #include "LIEF/BinaryStream/VectorStream.hpp"
@@ -45,6 +45,185 @@ ResourcesManager::~ResourcesManager(void) = default;
 ResourcesManager::ResourcesManager(ResourceNode *rsrc) :
   resources_{rsrc}
 {}
+
+RESOURCE_LANGS ResourcesManager::lang_from_id(size_t id) {
+  return static_cast<RESOURCE_LANGS>(id & 0x3ff);
+}
+
+RESOURCE_SUBLANGS ResourcesManager::sublang_from_id(size_t id) {
+  const size_t index = id >> 10;
+  const RESOURCE_LANGS lang = ResourcesManager::lang_from_id(id);
+  return ResourcesManager::sub_lang(lang, index);
+}
+
+RESOURCE_SUBLANGS ResourcesManager::sub_lang(RESOURCE_LANGS lang, size_t index) {
+  // From https://msdn.microsoft.com/en-us/library/windows/desktop/dd318693(v=vs.85).aspx
+  static const std::map<std::pair<RESOURCE_LANGS, size_t>, RESOURCE_SUBLANGS> sublangs_map = {
+
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x5}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_ALGERIA },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0xF}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_BAHRAIN },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x3}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_EGYPT },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x2}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_IRAQ },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0xB}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_JORDAN },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0xD}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_KUWAIT },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0xC}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_LEBANON },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x4}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_LIBYA },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x6}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_MOROCCO },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x8}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_OMAN },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x10}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_QATAR },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x01}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_SAUDI_ARABIA },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0xA}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_SYRIA },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x7}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_TUNISIA },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0xE}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_UAE },
+    { {RESOURCE_LANGS::LANG_ARABIC, 0x9}, RESOURCE_SUBLANGS::SUBLANG_ARABIC_YEMEN },
+
+    { {RESOURCE_LANGS::LANG_AZERI, 2}, RESOURCE_SUBLANGS::SUBLANG_AZERI_CYRILLIC },
+    { {RESOURCE_LANGS::LANG_AZERI, 1}, RESOURCE_SUBLANGS::SUBLANG_AZERI_LATIN },
+
+    { {RESOURCE_LANGS::LANG_BANGLA, 2}, RESOURCE_SUBLANGS::SUBLANG_BANGLA_BANGLADESH },
+    { {RESOURCE_LANGS::LANG_BANGLA, 1}, RESOURCE_SUBLANGS::SUBLANG_BANGLA_INDIA },
+
+    { {RESOURCE_LANGS::LANG_BOSNIAN, 8}, RESOURCE_SUBLANGS::SUBLANG_BOSNIAN_BOSNIA_HERZEGOVINA_CYRILLIC },
+    { {RESOURCE_LANGS::LANG_BOSNIAN, 5}, RESOURCE_SUBLANGS::SUBLANG_BOSNIAN_BOSNIA_HERZEGOVINA_LATIN },
+
+    { {RESOURCE_LANGS::LANG_CHINESE, 3}, RESOURCE_SUBLANGS::SUBLANG_CHINESE_HONGKONG },
+    { {RESOURCE_LANGS::LANG_CHINESE, 5}, RESOURCE_SUBLANGS::SUBLANG_CHINESE_MACAU },
+    { {RESOURCE_LANGS::LANG_CHINESE, 4}, RESOURCE_SUBLANGS::SUBLANG_CHINESE_SINGAPORE },
+    { {RESOURCE_LANGS::LANG_CHINESE, 2}, RESOURCE_SUBLANGS::SUBLANG_CHINESE_SIMPLIFIED },
+
+    { {RESOURCE_LANGS::LANG_CROATIAN, 4}, RESOURCE_SUBLANGS::SUBLANG_CROATIAN_BOSNIA_HERZEGOVINA_LATIN },
+    { {RESOURCE_LANGS::LANG_CROATIAN, 1}, RESOURCE_SUBLANGS::SUBLANG_CROATIAN_CROATIA },
+
+    { {RESOURCE_LANGS::LANG_DUTCH, 2}, RESOURCE_SUBLANGS::SUBLANG_DUTCH_BELGIAN },
+    { {RESOURCE_LANGS::LANG_DUTCH, 2}, RESOURCE_SUBLANGS::SUBLANG_DUTCH },
+
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x3}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_AUS },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0xA}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_BELIZE },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x4}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_CAN },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x9}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_CARIBBEAN },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x10}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_IRELAND },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x6}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_JAMAICA },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x8}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_MALAYSIA },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x11}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_NZ },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x5}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_PHILIPPINES },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x12}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_SINGAPORE },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x7}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_SOUTH_AFRICA },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0xB}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_TRINIDAD },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x2}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_UK },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0x1}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_US },
+    { {RESOURCE_LANGS::LANG_ENGLISH, 0xC}, RESOURCE_SUBLANGS::SUBLANG_ENGLISH_ZIMBABWE },
+
+    { {RESOURCE_LANGS::LANG_FRENCH, 1}, RESOURCE_SUBLANGS::SUBLANG_FRENCH },
+    { {RESOURCE_LANGS::LANG_FRENCH, 2}, RESOURCE_SUBLANGS::SUBLANG_FRENCH_BELGIAN },
+    { {RESOURCE_LANGS::LANG_FRENCH, 3}, RESOURCE_SUBLANGS::SUBLANG_FRENCH_CANADIAN },
+    { {RESOURCE_LANGS::LANG_FRENCH, 5}, RESOURCE_SUBLANGS::SUBLANG_FRENCH_LUXEMBOURG },
+    { {RESOURCE_LANGS::LANG_FRENCH, 6}, RESOURCE_SUBLANGS::SUBLANG_FRENCH_MONACO },
+    { {RESOURCE_LANGS::LANG_FRENCH, 4}, RESOURCE_SUBLANGS::SUBLANG_FRENCH_SWISS },
+
+    { {RESOURCE_LANGS::LANG_GERMAN, 1}, RESOURCE_SUBLANGS::SUBLANG_GERMAN },
+    { {RESOURCE_LANGS::LANG_GERMAN, 3}, RESOURCE_SUBLANGS::SUBLANG_GERMAN_AUSTRIAN },
+    { {RESOURCE_LANGS::LANG_GERMAN, 5}, RESOURCE_SUBLANGS::SUBLANG_GERMAN_LIECHTENSTEIN },
+    { {RESOURCE_LANGS::LANG_GERMAN, 4}, RESOURCE_SUBLANGS::SUBLANG_GERMAN_LUXEMBOURG },
+    { {RESOURCE_LANGS::LANG_GERMAN, 2}, RESOURCE_SUBLANGS::SUBLANG_GERMAN_SWISS },
+
+    { {RESOURCE_LANGS::LANG_INUKTITUT, 1}, RESOURCE_SUBLANGS::SUBLANG_INUKTITUT_CANADA },
+    { {RESOURCE_LANGS::LANG_INUKTITUT, 2}, RESOURCE_SUBLANGS::SUBLANG_INUKTITUT_CANADA_LATIN },
+
+    { {RESOURCE_LANGS::LANG_IRISH, 2}, RESOURCE_SUBLANGS::SUBLANG_IRISH_IRELAND },
+
+    { {RESOURCE_LANGS::LANG_ITALIAN, 1}, RESOURCE_SUBLANGS::SUBLANG_ITALIAN },
+    { {RESOURCE_LANGS::LANG_ITALIAN, 2}, RESOURCE_SUBLANGS::SUBLANG_ITALIAN_SWISS },
+
+    { {RESOURCE_LANGS::LANG_LOWER_SORBIAN, 2}, RESOURCE_SUBLANGS::SUBLANG_LOWER_SORBIAN_GERMANY },
+
+    { {RESOURCE_LANGS::LANG_MALAY, 2}, RESOURCE_SUBLANGS::SUBLANG_MALAY_BRUNEI_DARUSSALAM },
+    { {RESOURCE_LANGS::LANG_MALAY, 1}, RESOURCE_SUBLANGS::SUBLANG_MALAY_MALAYSIA },
+
+    { {RESOURCE_LANGS::LANG_MONGOLIAN, 2}, RESOURCE_SUBLANGS::SUBLANG_MONGOLIAN_PRC },
+    { {RESOURCE_LANGS::LANG_MONGOLIAN, 1}, RESOURCE_SUBLANGS::SUBLANG_MONGOLIAN_CYRILLIC_MONGOLIA },
+
+    { {RESOURCE_LANGS::LANG_NEPALI, 2}, RESOURCE_SUBLANGS::SUBLANG_NEPALI_INDIA },
+    { {RESOURCE_LANGS::LANG_NEPALI, 1}, RESOURCE_SUBLANGS::SUBLANG_NEPALI_NEPAL },
+
+    { {RESOURCE_LANGS::LANG_NORWEGIAN, 1}, RESOURCE_SUBLANGS::SUBLANG_NORWEGIAN_BOKMAL },
+    { {RESOURCE_LANGS::LANG_NORWEGIAN, 2}, RESOURCE_SUBLANGS::SUBLANG_NORWEGIAN_NYNORSK },
+
+    { {RESOURCE_LANGS::LANG_PORTUGUESE, 2}, RESOURCE_SUBLANGS::SUBLANG_PORTUGUESE },
+    { {RESOURCE_LANGS::LANG_PORTUGUESE, 1}, RESOURCE_SUBLANGS::SUBLANG_PORTUGUESE_BRAZILIAN },
+
+    { {RESOURCE_LANGS::LANG_PULAR, 2}, RESOURCE_SUBLANGS::SUBLANG_PULAR_SENEGAL },
+
+    { {RESOURCE_LANGS::LANG_PUNJABI, 1}, RESOURCE_SUBLANGS::SUBLANG_PUNJABI_INDIA },
+    { {RESOURCE_LANGS::LANG_PUNJABI, 2}, RESOURCE_SUBLANGS::SUBLANG_PUNJABI_PAKISTAN },
+
+    { {RESOURCE_LANGS::LANG_QUECHUA, 1}, RESOURCE_SUBLANGS::SUBLANG_QUECHUA_BOLIVIA },
+    { {RESOURCE_LANGS::LANG_QUECHUA, 2}, RESOURCE_SUBLANGS::SUBLANG_QUECHUA_ECUADOR },
+    { {RESOURCE_LANGS::LANG_QUECHUA, 3}, RESOURCE_SUBLANGS::SUBLANG_QUECHUA_PERU },
+
+    { {RESOURCE_LANGS::LANG_SAMI, 9}, RESOURCE_SUBLANGS::SUBLANG_SAMI_INARI_FINLAND },
+    { {RESOURCE_LANGS::LANG_SAMI, 4}, RESOURCE_SUBLANGS::SUBLANG_SAMI_LULE_NORWAY },
+    { {RESOURCE_LANGS::LANG_SAMI, 5}, RESOURCE_SUBLANGS::SUBLANG_SAMI_LULE_SWEDEN },
+    { {RESOURCE_LANGS::LANG_SAMI, 3}, RESOURCE_SUBLANGS::SUBLANG_SAMI_NORTHERN_FINLAND },
+    { {RESOURCE_LANGS::LANG_SAMI, 2}, RESOURCE_SUBLANGS::SUBLANG_SAMI_NORTHERN_SWEDEN },
+    { {RESOURCE_LANGS::LANG_SAMI, 8}, RESOURCE_SUBLANGS::SUBLANG_SAMI_SKOLT_FINLAND },
+    { {RESOURCE_LANGS::LANG_SAMI, 6}, RESOURCE_SUBLANGS::SUBLANG_SAMI_SOUTHERN_NORWAY },
+    { {RESOURCE_LANGS::LANG_SAMI, 7}, RESOURCE_SUBLANGS::SUBLANG_SAMI_SOUTHERN_SWEDEN },
+    { {RESOURCE_LANGS::LANG_SAMI, 1}, RESOURCE_SUBLANGS::SUBLANG_SAMI_NORTHERN_NORWAY },
+
+    { {RESOURCE_LANGS::LANG_SERBIAN, 7}, RESOURCE_SUBLANGS::SUBLANG_SERBIAN_BOSNIA_HERZEGOVINA_CYRILLIC },
+    { {RESOURCE_LANGS::LANG_SERBIAN, 6}, RESOURCE_SUBLANGS::SUBLANG_SERBIAN_BOSNIA_HERZEGOVINA_LATIN },
+    { {RESOURCE_LANGS::LANG_SERBIAN, 1}, RESOURCE_SUBLANGS::SUBLANG_SERBIAN_CROATIA },
+    { {RESOURCE_LANGS::LANG_SERBIAN, 3}, RESOURCE_SUBLANGS::SUBLANG_SERBIAN_CYRILLIC },
+    { {RESOURCE_LANGS::LANG_SERBIAN, 2}, RESOURCE_SUBLANGS::SUBLANG_SERBIAN_LATIN },
+
+    { {RESOURCE_LANGS::LANG_TSWANA, 2}, RESOURCE_SUBLANGS::SUBLANG_TSWANA_BOTSWANA },
+    { {RESOURCE_LANGS::LANG_TSWANA, 1}, RESOURCE_SUBLANGS::SUBLANG_TSWANA_SOUTH_AFRICA },
+
+    { {RESOURCE_LANGS::LANG_SPANISH, 0xb}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_ARGENTINA },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x10}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_BOLIVIA },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0xd}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_CHILE },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x9}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_COLOMBIA },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x5}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_COSTA_RICA },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x7}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_DOMINICAN_REPUBLIC },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0xC}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_ECUADOR },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x11}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_EL_SALVADOR },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x4}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_GUATEMALA },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x12}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_HONDURAS },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x2}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_MEXICAN },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x13}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_NICARAGUA },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x6}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_PANAMA },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0xF}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_PARAGUAY },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0xA}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_PERU },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x14}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_PUERTO_RICO },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x3}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_MODERN },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x1}, RESOURCE_SUBLANGS::SUBLANG_SPANISH },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x15}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_US },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0xE}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_URUGUAY },
+    { {RESOURCE_LANGS::LANG_SPANISH, 0x8}, RESOURCE_SUBLANGS::SUBLANG_SPANISH_VENEZUELA },
+
+    { {RESOURCE_LANGS::LANG_SWEDISH, 2}, RESOURCE_SUBLANGS::SUBLANG_SWEDISH_FINLAND },
+    { {RESOURCE_LANGS::LANG_SWEDISH, 1}, RESOURCE_SUBLANGS::SUBLANG_SWEDISH },
+
+    { {RESOURCE_LANGS::LANG_TAMAZIGHT, 2}, RESOURCE_SUBLANGS::SUBLANG_TAMAZIGHT_ALGERIA_LATIN },
+
+    { {RESOURCE_LANGS::LANG_TAMIL, 1}, RESOURCE_SUBLANGS::SUBLANG_TAMIL_INDIA },
+    { {RESOURCE_LANGS::LANG_TAMIL, 2}, RESOURCE_SUBLANGS::SUBLANG_TAMIL_SRI_LANKA },
+
+    { {RESOURCE_LANGS::LANG_TIGRINYA, 1}, RESOURCE_SUBLANGS::SUBLANG_TIGRINYA_ETHIOPIA },
+    { {RESOURCE_LANGS::LANG_TIGRINYA, 2}, RESOURCE_SUBLANGS::SUBLANG_TIGRINYA_ERITREA },
+
+    { {RESOURCE_LANGS::LANG_TIGRINYA, 1}, RESOURCE_SUBLANGS::SUBLANG_UIGHUR_PRC },
+    { {RESOURCE_LANGS::LANG_TIGRINYA, 2}, RESOURCE_SUBLANGS::SUBLANG_UZBEK_CYRILLIC },
+
+    { {RESOURCE_LANGS::LANG_VALENCIAN, 2}, RESOURCE_SUBLANGS::SUBLANG_VALENCIAN_VALENCIA },
+  };
+
+  auto&& it = sublangs_map.find({lang, index});
+  if (it == std::end(sublangs_map)) {
+    return RESOURCE_SUBLANGS::SUBLANG_DEFAULT;
+  }
+  return it->second;
+}
 
 
 // Enhancemed API to explore resource tree
@@ -116,19 +295,8 @@ std::set<RESOURCE_SUBLANGS> ResourcesManager::get_sublangs_available(void) const
   for (const ResourceNode& node_lvl_1 : this->resources_->childs()) {
     for (const ResourceNode& node_lvl_2 : node_lvl_1.childs()) {
       for (const ResourceNode& node_lvl_3 : node_lvl_2.childs()) {
-
-        RESOURCE_SUBLANGS sub_lang = static_cast<RESOURCE_SUBLANGS>(node_lvl_3.id() >> 10);
-
-        auto&& it = std::find_if(
-            std::begin(resource_sublangs_array),
-            std::end(resource_sublangs_array),
-            [sub_lang] (RESOURCE_SUBLANGS t) {
-              return t == sub_lang;
-            });
-
-        if (it != std::end(resource_sublangs_array)) {
-          sublangs.insert(*it);
-        }
+        RESOURCE_SUBLANGS sub_lang = ResourcesManager::sublang_from_id(node_lvl_3.id());
+        sublangs.insert(sub_lang);
       }
     }
   }
@@ -157,7 +325,7 @@ bool ResourcesManager::has_manifest(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::MANIFEST;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::MANIFEST;
       });
   return it_manifest != std::end(nodes);
 
@@ -173,7 +341,7 @@ std::string ResourcesManager::manifest(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::MANIFEST;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::MANIFEST;
       });
   const ResourceData* manifest_node = dynamic_cast<ResourceData*>(&((*it_manifest).childs()[0].childs()[0]));
   const std::vector<uint8_t>& content = manifest_node->content();
@@ -194,7 +362,7 @@ void ResourcesManager::manifest(const std::string& manifest) {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::MANIFEST;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::MANIFEST;
       });
 
   ResourceData* manifest_node = dynamic_cast<ResourceData*>(&((*it_manifest).childs()[0].childs()[0]));
@@ -210,7 +378,7 @@ bool ResourcesManager::has_version(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::VERSION;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::VERSION;
       });
   return it_version != std::end(nodes);
 }
@@ -225,7 +393,7 @@ ResourceVersion ResourcesManager::version(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::VERSION;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::VERSION;
       });
 
   const ResourceData* version_node = dynamic_cast<ResourceData*>(&((*it_version).childs()[0].childs()[0]));
@@ -233,23 +401,19 @@ ResourceVersion ResourcesManager::version(void) const {
   VectorStream stream{content};
   ResourceVersion version;
 
-  uint64_t offset = 0;
-
+  stream.setpos(0);
   // Size of the current "struct"
-  const uint16_t length = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-  offset += sizeof(uint16_t);
-  LOG(DEBUG) << "Lenght of the struct: 0x" << std::hex << length;
+  const uint16_t length = stream.read<uint16_t>();
+  VLOG(VDEBUG) << "Lenght of the struct: 0x" << std::hex << length;
 
   // Size of the fixed file info struct
-  const uint16_t value_length = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-  offset += sizeof(uint16_t);
-  LOG(DEBUG) << "Size of the 'FixedFileInfo' struct" << std::hex << value_length;
+  const uint16_t value_length = stream.read<uint16_t>();
+  VLOG(VDEBUG) << "Size of the 'FixedFileInfo' struct" << std::hex << value_length;
 
   // Type of the data in the version resource
   // 1: Text data
   // 0: Binary data
-  const uint16_t type = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-  offset += sizeof(uint16_t);
+  const uint16_t type = stream.read<uint16_t>();
   version.type_ = type;
   if (type != 0 and type != 1) {
     LOG(WARNING) << "\"type\" of the resource version should be equal to 0 or 1 (" << std::dec << type << ")";
@@ -257,18 +421,17 @@ ResourceVersion ResourcesManager::version(void) const {
 
 
   // Magic key: VS_VERSION_INFO
-  std::u16string key = {reinterpret_cast<const char16_t*>(content.data() + offset)};
-  if (u16tou8(key) != "VS_VERSION_INFO") {
+  std::u16string key = stream.read_u16string();
+  if (u16tou8(key, true) != "VS_VERSION_INFO") {
     LOG(WARNING) << "\"key\" of the resource version should be equal to 'VS_VERSION_INFO' (" << u16tou8(key) << ")";
   }
 
   version.key_ = key;
-  offset += (key.size() + 1) * sizeof(char16_t);
-  offset = align(offset, sizeof(uint32_t));
+  stream.align(sizeof(uint32_t));
 
   if (value_length > 0) {
     if (value_length == sizeof(pe_resource_fixed_file_info)) {
-      const pe_resource_fixed_file_info* fixed_file_info_header = reinterpret_cast<const pe_resource_fixed_file_info*>(stream.read(offset, sizeof(pe_resource_fixed_file_info)));
+      const pe_resource_fixed_file_info* fixed_file_info_header = &stream.peek<pe_resource_fixed_file_info>();
       if (fixed_file_info_header->signature != 0xFEEF04BD) {
         LOG(WARNING) << "Bad magic value for the Fixed file info structure";
       } else {
@@ -278,42 +441,41 @@ ResourceVersion ResourcesManager::version(void) const {
     } else {
       LOG(WARNING) << "The 'value' member contains an unknown structure";
     }
-
-    offset += value_length * sizeof(uint8_t);
+    stream.increment_pos(value_length * sizeof(uint8_t));
   }
-  offset = align(offset, sizeof(uint32_t));
+  stream.align(sizeof(uint32_t));
 
 
   { // First entry
-    LOG(DEBUG) << "Parsing first entry";
-    const uint16_t struct_file_info_length = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-    uint64_t local_offset = offset;
-    LOG(DEBUG) << "Length: " << std::hex << struct_file_info_length;
+    VLOG(VDEBUG) << "Parsing first entry";
+    const uint16_t struct_file_info_length = stream.peek<uint16_t>();
+    VLOG(VDEBUG) << "Length: " << std::hex << struct_file_info_length;
+
+    const size_t start = stream.pos();
+
     if (struct_file_info_length > 0) {
-      local_offset += sizeof(uint16_t);
+      stream.increment_pos(sizeof(uint16_t));
 
-      const uint16_t struct_length = *reinterpret_cast<const uint16_t*>(stream.read(local_offset, sizeof(uint16_t)));
-      local_offset += sizeof(uint16_t);
-      LOG(DEBUG) << "Lenght of the struct: 0x" << std::hex << struct_length;
+      const uint16_t struct_length = stream.read<uint16_t>();
+      VLOG(VDEBUG) << "Lenght of the struct: 0x" << std::hex << struct_length;
 
-      const uint16_t type = *reinterpret_cast<const uint16_t*>(stream.read(local_offset, sizeof(uint16_t)));
-      local_offset += sizeof(uint16_t);
-      LOG(DEBUG) << "Type of the struct: " << std::dec << type;
+      const uint16_t type = stream.read<uint16_t>();
+      VLOG(VDEBUG) << "Type of the struct: " << std::dec << type;
 
-      std::u16string key = {reinterpret_cast<const char16_t*>(content.data() + local_offset)};
-      LOG(DEBUG) << "First entry (key) " << u16tou8(key);
-      if (u16tou8(key) == "StringFileInfo") {
+      std::u16string key = stream.read_u16string();
+      VLOG(VDEBUG) << "First entry (key) " << u16tou8(key);
+      if (u16tou8(key, true) == "StringFileInfo") {
         try {
-          version.string_file_info_ = this->get_string_file_info(stream, offset);
+          version.string_file_info_ = this->get_string_file_info(stream, type, key, start, struct_file_info_length);
           version.has_string_file_info_ = true;
         } catch (const LIEF::exception& e) {
           LOG(ERROR) << e.what();
         }
       }
 
-      if (u16tou8(key) == "VarFileInfo") {
+      if (u16tou8(key, true) == "VarFileInfo") {
         try {
-          version.var_file_info_ = this->get_var_file_info(stream, offset);
+          version.var_file_info_ = this->get_var_file_info(stream, type, key, start, struct_file_info_length);
           version.has_var_file_info_ = true;
         } catch (const LIEF::exception& e) {
           LOG(ERROR) << e.what();
@@ -325,37 +487,37 @@ ResourceVersion ResourcesManager::version(void) const {
 
   { // Second entry
 
-    LOG(DEBUG) << "Parsing second entry";
-    const uint16_t struct_file_info_length = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-    uint64_t local_offset = offset;
-    LOG(DEBUG) << "Length: " << std::hex << struct_file_info_length;
+    VLOG(VDEBUG) << "Parsing second entry";
+    const uint16_t struct_file_info_length = stream.peek<uint16_t>();
+    VLOG(VDEBUG) << "Length: " << std::hex << struct_file_info_length;
+
+    const size_t start = stream.pos();
 
     if (struct_file_info_length > 0) {
-      local_offset += sizeof(uint16_t);
+      stream.increment_pos(sizeof(uint16_t));
 
-      const uint16_t struct_length = *reinterpret_cast<const uint16_t*>(stream.read(local_offset, sizeof(uint16_t)));
-      local_offset += sizeof(uint16_t);
-      LOG(DEBUG) << "Lenght of the struct: 0x" << std::hex << struct_length;
+      const uint16_t struct_length = stream.read<uint16_t>();
+      VLOG(VDEBUG) << "Lenght of the struct: 0x" << std::hex << struct_length;
 
-      const uint16_t type = *reinterpret_cast<const uint16_t*>(stream.read(local_offset, sizeof(uint16_t)));
-      local_offset += sizeof(uint16_t);
-      LOG(DEBUG) << "Type of the struct: " << std::dec << type;
+      const uint16_t type = stream.read<uint16_t>();
+      VLOG(VDEBUG) << "Type of the struct: " << std::dec << type;
 
-      std::u16string key = {reinterpret_cast<const char16_t*>(content.data() + local_offset)};
+      std::u16string key = stream.read_u16string();
+      stream.align(sizeof(uint32_t));
 
-      LOG(DEBUG) << "Second entry (key) " << u16tou8(key);
-      if (u16tou8(key) == "StringFileInfo") {
+      VLOG(VDEBUG) << "Second entry (key) " << u16tou8(key);
+      if (u16tou8(key, true) == "StringFileInfo") {
         try {
-          version.string_file_info_ = this->get_string_file_info(stream, offset);
+          version.string_file_info_ = this->get_string_file_info(stream, type, key, start, struct_file_info_length);
           version.has_string_file_info_ = true;
         } catch (const LIEF::exception& e) {
           LOG(ERROR) << e.what();
         }
       }
 
-      if (u16tou8(key) == "VarFileInfo") {
+      if (u16tou8(key, true) == "VarFileInfo") {
         try {
-          version.var_file_info_ = this->get_var_file_info(stream, offset);
+          version.var_file_info_ = this->get_var_file_info(stream, type, key, start, struct_file_info_length);
           version.has_var_file_info_ = true;
         } catch (const LIEF::exception& e) {
           LOG(ERROR) << e.what();
@@ -368,186 +530,129 @@ ResourceVersion ResourcesManager::version(void) const {
 }
 
 
-ResourceStringFileInfo ResourcesManager::get_string_file_info(const VectorStream& stream, uint64_t& offset) const {
-  LOG(DEBUG) << "Getting StringFileInfo object";
+ResourceStringFileInfo ResourcesManager::get_string_file_info(const VectorStream& stream, uint16_t type, std::u16string key, size_t start, size_t struct_length) const {
+  VLOG(VDEBUG) << "Getting StringFileInfo object";
 
   // String File Info
   // ================
   ResourceStringFileInfo string_file_info;
-  const uint16_t string_file_info_length = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-  uint64_t str_local_offset = offset;
-  if (string_file_info_length > 0) {
-    str_local_offset += sizeof(uint16_t);
 
-    const uint16_t value_length = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-    str_local_offset += sizeof(uint16_t);
-    LOG(DEBUG) << "Value length: " << std::dec << value_length << " (should be 0)";
+  string_file_info.type_ = type;
+  string_file_info.key_  = key;
 
-    const uint16_t type = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-    LOG(DEBUG) << "Type: " << std::dec << type;
 
-    str_local_offset += sizeof(uint16_t);
-    string_file_info.type_ = type;
+  // Parse 'StringTable' childs
+  // ==========================
+  VLOG(VDEBUG) << "Parsing 'StringTable' struct";
+  const size_t end_string_stable = start + struct_length * sizeof(uint8_t);
 
-    std::u16string key = {reinterpret_cast<const char16_t*>(stream.content().data() + str_local_offset)};
-    if (u16tou8(key) != "StringFileInfo") {
-      LOG(WARNING) << "\"key\" of the resource version should be equal to 'StringFileInfo' (" << u16tou8(key) << ")";
+  while (stream.pos() < end_string_stable) {
+    LangCodeItem lang_code_item;
+    const uint16_t stringtable_length = stream.peek<uint16_t>();
+
+    // End of the structure including childs
+    const uint64_t end_offset = stream.pos() + stringtable_length * sizeof(uint8_t);
+    stream.increment_pos(sizeof(uint16_t));
+
+    const uint16_t stringtable_value_length = stream.read<uint16_t>();
+
+    VLOG(VDEBUG) << "Value length: " << std::dec << stringtable_value_length << " (should be 0)";
+
+    const uint16_t stringtable_type = stream.read<uint16_t>();
+    VLOG(VDEBUG) << "Type: " << std::dec << stringtable_type;
+
+    // 1: Text data
+    // 0: Binary data
+    if (type != 0 and type != 1) {
+      LOG(WARNING) << "\"type\" of the StringTable should be equal to 0 or 1 (" << std::dec << type << ")";
     }
-    string_file_info.key_ = key;
-
-    str_local_offset += (key.size() + 1) * sizeof(char16_t);
-    str_local_offset = align(str_local_offset, sizeof(uint32_t));
-
-    // Parse 'StringTable' childs
-    // ==========================
-    LOG(DEBUG) << "Parsing 'StringTable' struct";
-    while (str_local_offset < offset + string_file_info_length * sizeof(uint8_t)) {
-      LangCodeItem lang_code_item;
-      const uint16_t stringtable_length = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-
-      // End of the structure including childs
-      const uint64_t end_offset = str_local_offset + stringtable_length * sizeof(uint8_t);
-
-      str_local_offset += sizeof(uint16_t);
-
-      const uint16_t stringtable_value_length = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-      str_local_offset += sizeof(uint16_t);
-
-      LOG(DEBUG) << "Value length: " << std::dec << stringtable_value_length << " (should be 0)";
-
-      const uint16_t stringtable_type = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-      LOG(DEBUG) << "Type: " << std::dec << stringtable_type;
-      str_local_offset += sizeof(uint16_t);
-
-      // 1: Text data
-      // 0: Binary data
-      if (type != 0 and type != 1) {
-        LOG(WARNING) << "\"type\" of the StringTable should be equal to 0 or 1 (" << std::dec << type << ")";
-      }
-      lang_code_item.type_ = type;
+    lang_code_item.type_ = type;
 
 
-      std::u16string key = {reinterpret_cast<const char16_t*>(stream.content().data() + str_local_offset)};
-      lang_code_item.key_ = key;
-      LOG(DEBUG) << "ID: " << u16tou8(key);
+    std::u16string key = stream.read_u16string();
+    lang_code_item.key_ = key;
+    VLOG(VDEBUG) << "ID: " << u16tou8(key);
 
-      std::string key_str = u16tou8(key);
+    std::string key_str = u16tou8(key);
 
-      if (key.length() != 8) {
-        LOG(ERROR) << "Corrupted key (" << u16tou8(key) << key_str << ")";
-      } else {
-        uint64_t lang_id   = std::stoul(u16tou8(key.substr(0, 4)), 0, 16);
-        uint64_t code_page = std::stoul(u16tou8(key.substr(4, 8)), 0, 16);
-        LOG(DEBUG) << "Lang ID: "   << std::dec << lang_id;
-        LOG(DEBUG) << "Code page: " << std::hex << code_page;
-      }
-
-      str_local_offset += (key.size() + 1) * sizeof(char16_t);
-      str_local_offset = align(str_local_offset, sizeof(uint32_t));
-
-      // Parse 'String'
-      // ==============
-      while (str_local_offset < end_offset) {
-        const uint16_t string_length = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-        str_local_offset += sizeof(uint16_t);
-        LOG(DEBUG) << "Length of the 'string' struct: 0x" << std::hex << string_length;
-
-        const uint16_t string_value_length = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-        str_local_offset += sizeof(uint16_t);
-        LOG(DEBUG) << "Size of the 'value' member: 0x" << std::hex << string_value_length;
-
-        const uint16_t string_type = *reinterpret_cast<const uint16_t*>(stream.read(str_local_offset, sizeof(uint16_t)));
-        str_local_offset += sizeof(uint16_t);
-        LOG(DEBUG) << "Type of the 'string' struct: " << std::dec << string_type;
-
-        std::u16string key = {reinterpret_cast<const char16_t*>(stream.content().data() + str_local_offset)};
-        LOG(DEBUG) << "Key: " << u16tou8(key);
-        str_local_offset += (key.size() + 1) * sizeof(char16_t);
-        str_local_offset = align(str_local_offset, sizeof(uint32_t));
-
-        std::u16string value = {reinterpret_cast<const char16_t*>(stream.content().data() + str_local_offset)};
-        LOG(DEBUG) << "Value: " << u16tou8(value);
-        str_local_offset += (value.size() + 1) * sizeof(char16_t);
-
-        str_local_offset = align(str_local_offset, sizeof(uint32_t));
-        lang_code_item.items_.emplace(key, value);
-      }
-      string_file_info.childs_.push_back(std::move(lang_code_item));
+    if (key.length() != 8) {
+      LOG(ERROR) << "Corrupted key (" << u16tou8(key) << key_str << ")";
+    } else {
+      uint64_t lang_id   = std::stoul(u16tou8(key.substr(0, 4)), 0, 16);
+      uint64_t code_page = std::stoul(u16tou8(key.substr(4, 8)), 0, 16);
+      VLOG(VDEBUG) << "Lang ID: "   << std::dec << lang_id;
+      VLOG(VDEBUG) << "Code page: " << std::hex << code_page;
     }
+
+    stream.align(sizeof(uint32_t));
+
+    // Parse 'String'
+    // ==============
+    while (stream.pos() < end_offset) {
+      const uint16_t string_length = stream.read<uint16_t>();
+      VLOG(VDEBUG) << "Length of the 'string' struct: 0x" << std::hex << string_length;
+
+      const uint16_t string_value_length = stream.read<uint16_t>();
+      VLOG(VDEBUG) << "Size of the 'value' member: 0x" << std::hex << string_value_length;
+
+      const uint16_t string_type = stream.read<uint16_t>();
+      VLOG(VDEBUG) << "Type of the 'string' struct: " << std::dec << string_type;
+
+      std::u16string key = stream.read_u16string();
+      VLOG(VDEBUG) << "Key: " << u16tou8(key);
+      stream.align(sizeof(uint32_t));
+
+      std::u16string value = stream.read_u16string();
+      VLOG(VDEBUG) << "Value: " << u16tou8(value);
+
+      stream.align(sizeof(uint32_t));
+      lang_code_item.items_.emplace(key, value);
+    }
+    string_file_info.childs_.push_back(std::move(lang_code_item));
   }
-  //offset += string_file_info_length * sizeof(uint8_t);
-  offset = str_local_offset;
+  //stream.setpos(end_string_stable);
   return string_file_info;
 }
 
 
-ResourceVarFileInfo ResourcesManager::get_var_file_info(const VectorStream& stream, uint64_t& offset) const {
-  LOG(DEBUG) << "Getting VarFileInfo object";
+ResourceVarFileInfo ResourcesManager::get_var_file_info(const VectorStream& stream, uint16_t type, std::u16string key, size_t start, size_t struct_length) const {
+  VLOG(VDEBUG) << "Getting VarFileInfo object";
   // Var file info
   // =============
   ResourceVarFileInfo var_file_info;
-  const uint16_t var_file_info_length = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-  uint64_t var_local_offset = offset;
 
-  if (var_file_info_length > 0) {
-    var_local_offset += sizeof(uint16_t);
+  var_file_info.type_ = type;
+  var_file_info.key_  = key;
 
-    const uint16_t value_length = *reinterpret_cast<const uint16_t*>(stream.read(var_local_offset, sizeof(uint16_t)));
-    var_local_offset += sizeof(uint16_t);
-    LOG(DEBUG) << "Value length: " << std::dec << value_length << " (should be 0)";
+  // Parse 'Var' childs
+  // ==================
+  VLOG(VDEBUG) << "Parsing 'Var' childs";
+  const size_t end_var_file_info = start + struct_length * sizeof(uint8_t);
+  while (stream.pos() < end_var_file_info) {
+    const uint16_t var_length = stream.read<uint16_t>();
+    VLOG(VDEBUG) << "Size of the 'Var' struct: 0x" << std::hex << var_length;
 
-    const uint16_t type = *reinterpret_cast<const uint16_t*>(stream.read(var_local_offset, sizeof(uint16_t)));
-    var_local_offset += sizeof(uint16_t);
-    var_file_info.type_ = type;
-    LOG(DEBUG) << "Type: " << std::dec << type;
+    const uint16_t var_value_length = stream.read<uint16_t>();
+    VLOG(VDEBUG) << "Size of the 'Value' member: 0x" << std::hex << var_value_length;
 
-    std::u16string key = {reinterpret_cast<const char16_t*>(stream.content().data() + var_local_offset)};
-    if (u16tou8(key) != "VarFileInfo") {
-      LOG(WARNING) << "\"key\" of the resource version should be equal to 'VarFileInfo' (" << u16tou8(key) << ")";
+    const uint16_t var_type = stream.read<uint16_t>();
+    VLOG(VDEBUG) << "Type: " << std::dec << var_type;
+
+    std::u16string key = stream.read_u16string();
+    if (u16tou8(key) != "Translation") {
+      LOG(WARNING) << "\"key\" of the var key should be equal to 'Translation' (" << u16tou8(key) << ")";
     }
-    var_file_info.key_ = key;
+    stream.align(sizeof(uint32_t));
 
-    var_local_offset += (key.size() + 1) * sizeof(char16_t);
-    var_local_offset = align(var_local_offset, sizeof(uint32_t));
-
-    // Parse 'Var' childs
-    // ==================
-    LOG(DEBUG) << "Parsing 'Var' childs";
-    while (var_local_offset < offset + var_file_info_length * sizeof(uint8_t)) {
-      const uint16_t var_length = *reinterpret_cast<const uint16_t*>(stream.read(var_local_offset, sizeof(uint16_t)));
-      var_local_offset += sizeof(uint16_t);
-      LOG(DEBUG) << "Size of the 'Var' struct: 0x" << std::hex << var_length;
-
-      const uint16_t var_value_length = *reinterpret_cast<const uint16_t*>(stream.read(var_local_offset, sizeof(uint16_t)));
-      var_local_offset += sizeof(uint16_t);
-      LOG(DEBUG) << "Size of the 'Value' member: 0x" << std::hex << var_value_length;
-
-      const uint16_t var_type = *reinterpret_cast<const uint16_t*>(stream.read(var_local_offset, sizeof(uint16_t)));
-      var_local_offset += sizeof(uint16_t);
-      LOG(DEBUG) << "Type: " << std::dec << var_type;
-
-      std::u16string key = {reinterpret_cast<const char16_t*>(stream.content().data() + var_local_offset)};
-      if (u16tou8(key) != "Translation") {
-        LOG(WARNING) << "\"key\" of the var key should be equal to 'Translation' (" << u16tou8(key) << ")";
-      }
-
-      var_local_offset += (key.size() + 1) * sizeof(char16_t);
-      var_local_offset = align(var_local_offset, sizeof(uint32_t));
-
-      const uint32_t *value_array = reinterpret_cast<const uint32_t*>(stream.read(var_local_offset, var_value_length * sizeof(uint8_t)));
-      const size_t nb_items = var_value_length / sizeof(uint32_t);
-      for (size_t i = 0; i < nb_items; ++i) {
-        LOG(DEBUG) << "item[" << std::dec << i << "] = " << std::hex << value_array[i];
-        var_file_info.translations_.push_back(value_array[i]);
-      }
-      var_local_offset += var_value_length;
+    const size_t nb_items = var_value_length / sizeof(uint32_t);
+    const uint32_t *value_array = stream.read_array<uint32_t>(nb_items);
+    for (size_t i = 0; i < nb_items; ++i) {
+      VLOG(VDEBUG) << "item[" << std::dec << i << "] = " << std::hex << value_array[i];
+      var_file_info.translations_.push_back(value_array[i]);
     }
   }
-//  offset += var_file_info_length * sizeof(uint8_t);
-
-  offset = var_local_offset;
+  stream.setpos(end_var_file_info);
   return var_file_info;
-
 }
 
 // Icons
@@ -560,7 +665,7 @@ bool ResourcesManager::has_icons(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::ICON;
       });
 
 
@@ -568,7 +673,7 @@ bool ResourcesManager::has_icons(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::GROUP_ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::GROUP_ICON;
       });
 
 
@@ -591,7 +696,7 @@ std::vector<ResourceIcon> ResourcesManager::icons(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::ICON;
       });
 
 
@@ -599,7 +704,7 @@ std::vector<ResourceIcon> ResourcesManager::icons(void) const {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::GROUP_ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::GROUP_ICON;
       });
 
   if (it_icon == std::end(nodes)) {
@@ -618,8 +723,8 @@ std::vector<ResourceIcon> ResourcesManager::icons(void) const {
 
       const pe_resource_icon_dir* group_icon_header = reinterpret_cast<const pe_resource_icon_dir*>(icon_group_content.data());
 
-      LOG(DEBUG) << "Number of icons: " << std::dec << static_cast<uint32_t>(group_icon_header->count);
-      LOG(DEBUG) << "Type: "            << std::dec << static_cast<uint32_t>(group_icon_header->type);
+      VLOG(VDEBUG) << "Number of icons: " << std::dec << static_cast<uint32_t>(group_icon_header->count);
+      VLOG(VDEBUG) << "Type: "            << std::dec << static_cast<uint32_t>(group_icon_header->type);
 
       // Some checks
       if (group_icon_header->type != 1) {
@@ -639,8 +744,9 @@ std::vector<ResourceIcon> ResourcesManager::icons(void) const {
         const uint32_t id = icon_header->ID;
 
         ResourceIcon icon{icon_header};
-        icon.sublang_ = static_cast<RESOURCE_SUBLANGS>(grp_icon_lvl3.id() >> 10);
-        icon.lang_    = static_cast<RESOURCE_LANGS>(grp_icon_lvl3.id() & 0x3fff);
+        icon.lang_    = ResourcesManager::lang_from_id(grp_icon_lvl3.id());
+        icon.sublang_ = ResourcesManager::sublang_from_id(grp_icon_lvl3.id());
+
         it_childs sub_nodes_icons = it_icon->childs();
 
         auto&& it_icon_dir = std::find_if(
@@ -673,7 +779,7 @@ void ResourcesManager::add_icon(const ResourceIcon& icon) {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::ICON;
       });
 
 
@@ -681,7 +787,7 @@ void ResourcesManager::add_icon(const ResourceIcon& icon) {
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::GROUP_ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::GROUP_ICON;
       });
 
   if (it_icon == std::end(nodes)) {
@@ -730,7 +836,7 @@ void ResourcesManager::add_icon(const ResourceIcon& icon) {
   new_icon_dir_node.id(new_id);
 
   ResourceData new_icon_data_node{icon.pixels(), 0};
-  new_icon_data_node.id(icon.sublang() << 10 | icon.lang());
+  new_icon_data_node.id(static_cast<int>(icon.sublang()) << 10 | static_cast<int>(icon.lang()));
   new_icon_dir_node.add_child(new_icon_data_node);
 
   it_icon->add_child(new_icon_dir_node);
@@ -744,7 +850,7 @@ void ResourcesManager::change_icon(const ResourceIcon& original, const ResourceI
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::ICON;
       });
 
 
@@ -752,7 +858,7 @@ void ResourcesManager::change_icon(const ResourceIcon& original, const ResourceI
       std::begin(nodes),
       std::end(nodes),
       [] (const ResourceNode& node) {
-        return node.id() == RESOURCE_TYPES::GROUP_ICON;
+        return static_cast<RESOURCE_TYPES>(node.id()) == RESOURCE_TYPES::GROUP_ICON;
       });
 
   if (it_icon == std::end(nodes)) {
@@ -777,7 +883,7 @@ void ResourcesManager::change_icon(const ResourceIcon& original, const ResourceI
             i * sizeof(pe_resource_icon_group));
 
         if (icon_header->ID == original.id()) {
-          LOG(DEBUG) << "Group found: " << std::dec << i << "-nth";
+          VLOG(VDEBUG) << "Group found: " << std::dec << i << "-nth";
           group = icon_header;
           icon_header->width       = newone.width();
           icon_header->height      = newone.height();
@@ -804,7 +910,7 @@ void ResourcesManager::change_icon(const ResourceIcon& original, const ResourceI
   new_icon_dir_node.id(newone.id());
 
   ResourceData new_icon_data_node{newone.pixels(), 0};
-  new_icon_data_node.id(newone.sublang() << 10 | newone.lang());
+  new_icon_data_node.id(static_cast<int>(newone.sublang()) << 10 | static_cast<int>(newone.lang()));
   new_icon_dir_node.add_child(new_icon_data_node);
 
   it_icon->add_child(new_icon_dir_node);
@@ -823,7 +929,7 @@ void ResourcesManager::change_icon(const ResourceIcon& original, const ResourceI
 // ====================================================================
 std::vector<ResourceDialog> ResourcesManager::dialogs(void) const {
   if (not this->has_dialogs()) {
-    throw not_found("No dialogs found!");
+    return {};
   }
   std::vector<ResourceDialog> dialogs;
   const ResourceDirectory* dialog_dir = dynamic_cast<const ResourceDirectory*>(&this->get_node_type(RESOURCE_TYPES::DIALOG));
@@ -838,170 +944,157 @@ std::vector<ResourceDialog> ResourcesManager::dialogs(void) const {
       const ResourceData* data_node = dynamic_cast<const ResourceData*>(&langs[j]);
       const std::vector<uint8_t>& content = data_node->content();
       VectorStream stream{content};
-
+      stream.setpos(0);
 
       if (content.size() < std::min(sizeof(pe_dialog_template_ext), sizeof(pe_dialog_template))) {
-        throw corrupted("Dialog is corrupted!");
+        LOG(WARNING) << "Dialog is corrupted!";
+        return {};
       }
 
       if (content[2] == 0xFF and content[3] == 0xFF) {
 
         if (content.size() < sizeof(pe_dialog_template_ext)) {
-          throw corrupted("Dialog is corrupted!");
+          LOG(WARNING) << "Dialog is corrupted!";
+          return {};
         }
 
-        const pe_dialog_template_ext* header = reinterpret_cast<const pe_dialog_template_ext*>(stream.read(0, sizeof(pe_dialog_template_ext)));
+        const pe_dialog_template_ext* header = &stream.read<pe_dialog_template_ext>();
 
         ResourceDialog new_dialog{header};
-
-        size_t offset = sizeof(pe_dialog_template_ext);
+        new_dialog.lang(ResourcesManager::lang_from_id(data_node->id()));
+        new_dialog.sub_lang(ResourcesManager::sublang_from_id(data_node->id()));
 
         // Menu
         // ====
-        const uint16_t menu_hint = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-        offset += sizeof(uint16_t);
+        const uint16_t menu_hint = stream.read<uint16_t>();
         switch(menu_hint) {
           case 0x0000:
             {
-              LOG(DEBUG) << "Dialog has not menu";
+              VLOG(VDEBUG) << "Dialog has not menu";
               break;
             }
 
           case 0xFFFF:
             {
-              const uint16_t menu_ordinal = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-              offset += sizeof(uint16_t);
-              LOG(DEBUG) << "Menu uses ordinal number " << std::dec << menu_ordinal;
+              const uint16_t menu_ordinal = stream.read<uint16_t>();
+              VLOG(VDEBUG) << "Menu uses ordinal number " << std::dec << menu_ordinal;
               break;
             }
 
           default:
             {
-              LOG(DEBUG) << "Menu uses unicode string";
-              std::u16string menu_name = {reinterpret_cast<const char16_t*>(content.data() + offset)};
-              offset += (menu_name.size() + 1)* sizeof(char16_t);
+              VLOG(VDEBUG) << "Menu uses unicode string";
+              std::u16string menu_name = stream.read_u16string();
             }
         }
 
+
         // Window Class
         // ============
-        const uint16_t window_class_hint = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-        offset += sizeof(uint16_t);
+        stream.align(sizeof(uint16_t));
+
+        const uint16_t window_class_hint = stream.read<uint16_t>();
+
         switch(window_class_hint) {
           case 0x0000:
             {
-              LOG(DEBUG) << "Windows class uses predefined dialog box";
+              VLOG(VDEBUG) << "Windows class uses predefined dialog box";
               break;
             }
 
           case 0xFFFF:
             {
-              const uint16_t windows_class_ordinal = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-              LOG(DEBUG) << "Windows class uses ordinal number " << std::dec <<  windows_class_ordinal;
-              offset += sizeof(uint16_t);
+              const uint16_t windows_class_ordinal = stream.read<uint16_t>();
+              VLOG(VDEBUG) << "Windows class uses ordinal number " << std::dec <<  windows_class_ordinal;
               break;
             }
 
           default:
             {
-
-              LOG(DEBUG) << "Windows class uses unicode string";
-              std::u16string window_class_name = {reinterpret_cast<const char16_t*>(content.data() + offset)};
-              offset += (window_class_name.size() + 1) * sizeof(char16_t);
+              VLOG(VDEBUG) << "Windows class uses unicode string";
+              std::u16string window_class_name = stream.read_u16string();
             }
         }
 
         // Title
         // =====
-        LOG(DEBUG) << "Title offset: " << std::hex << offset;
-        new_dialog.title_ = std::u16string{reinterpret_cast<const char16_t*>(content.data() + offset)};
-        offset += sizeof(uint16_t) * (new_dialog.title().size() + 1);
+        stream.align(sizeof(uint16_t));
+        VLOG(VDEBUG) << "Title offset: " << std::hex << stream.pos();
+        new_dialog.title_ = stream.read_u16string();
 
         // 2nd part
         // ========
         const std::set<DIALOG_BOX_STYLES>& dialogbox_styles = new_dialog.dialogbox_style_list();
         if (dialogbox_styles.count(DIALOG_BOX_STYLES::DS_SHELLFONT) > 0 or dialogbox_styles.count(DIALOG_BOX_STYLES::DS_SETFONT) > 0) {
-          const uint16_t point_size = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-          offset += sizeof(uint16_t);
+          const uint16_t point_size = stream.read<uint16_t>();
           new_dialog.point_size_ = point_size;
 
-          const uint16_t weight = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-          offset += sizeof(uint16_t);
+          const uint16_t weight = stream.read<uint16_t>();
           new_dialog.weight_ = weight;
 
-          const uint8_t is_italic = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-          offset += sizeof(uint8_t);
+          const uint8_t is_italic = stream.read<uint8_t>();
           new_dialog.italic_ = static_cast<bool>(is_italic);
 
-          const uint8_t charset = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-          offset += sizeof(uint8_t);
+          const uint8_t charset = stream.read<uint8_t>();
           new_dialog.charset_ = static_cast<bool>(charset);
 
-          new_dialog.typeface_ = std::u16string{reinterpret_cast<const char16_t*>(content.data() + offset)};
-          offset += (new_dialog.typeface().size() + 1) * sizeof(char16_t);
+          new_dialog.typeface_ = stream.read_u16string();
         }
 
-        LOG(DEBUG) << "Offset to the items: 0x" << std::hex << offset;
-        LOG(DEBUG) << std::endl << std::endl << "####### Items #######" << std::endl;
+        VLOG(VDEBUG) << "Offset to the items: 0x" << std::hex << stream.pos();
+        VLOG(VDEBUG) << std::endl << std::endl << "####### Items #######" << std::endl;
 
         // Items
         // =====
         for (size_t i = 0; i < header->nbof_items; ++i) {
-          offset = align(offset, sizeof(uint32_t));
-          LOG(DEBUG) << "item[" << std::dec << i << "] offset: 0x" << std::hex << offset;
+          stream.align(sizeof(uint32_t));
+          VLOG(VDEBUG) << "item[" << std::dec << i << "] offset: 0x" << std::hex << stream.pos();
           ResourceDialogItem dialog_item;
 
           if (new_dialog.is_extended()) {
-            const pe_dialog_item_template_ext* item_header = reinterpret_cast<const pe_dialog_item_template_ext*>(stream.read(offset, sizeof(pe_dialog_item_template_ext)));
-            offset += sizeof(pe_dialog_item_template_ext);
-            dialog_item = {item_header};
-            LOG(DEBUG) << "Item ID: " << std::dec << item_header->id;
+            const pe_dialog_item_template_ext* item_header = &stream.read<pe_dialog_item_template_ext>();
+            dialog_item = item_header;
+            VLOG(VDEBUG) << "Item ID: " << std::dec << item_header->id;
           } else {
-            const pe_dialog_item_template* item_header = reinterpret_cast<const pe_dialog_item_template*>(stream.read(offset, sizeof(pe_dialog_item_template)));
-            offset += sizeof(pe_dialog_item_template);
+            const pe_dialog_item_template* item_header = &stream.read<pe_dialog_item_template>();
             new_dialog.items_.emplace_back(item_header);
             continue;
           }
 
           // window class
           // ------------
-          offset = align(offset, sizeof(uint32_t));
-          const uint16_t window_class_hint = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-          offset += sizeof(uint16_t);
+          stream.align(sizeof(uint32_t));
+          const uint16_t window_class_hint = stream.read<uint16_t>();
+
           if (window_class_hint == 0xFFFF) {
-            const uint16_t windows_class_ordinal = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-            LOG(DEBUG) << "Windows class uses ordinal number " << std::dec <<  windows_class_ordinal;
-            offset += sizeof(uint16_t);
+            const uint16_t windows_class_ordinal = stream.read<uint16_t>();
+            VLOG(VDEBUG) << "Windows class uses ordinal number " << std::dec <<  windows_class_ordinal;
           } else {
-            LOG(DEBUG) << "Windows class uses unicode string";
-            std::u16string window_class_name = {reinterpret_cast<const char16_t*>(stream.read(offset, sizeof(uint16_t)))};
-            offset += (window_class_name.size() + 1) * sizeof(char16_t);
+            VLOG(VDEBUG) << "Windows class uses unicode string";
+            std::u16string window_class_name = stream.read_u16string();
           }
 
           // Title
           // -----
-          offset = align(offset, sizeof(uint32_t));
-          const uint16_t title_hint = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
+          stream.align(sizeof(uint32_t));
+          const uint16_t title_hint = stream.peek<uint16_t>();
 
           if (title_hint == 0xFFFF) {
-            offset += sizeof(uint16_t);
-            const uint16_t title_ordinal = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-            LOG(DEBUG) << "Title uses ordinal number " << std::dec <<  title_ordinal;
-            offset += sizeof(uint16_t);
+            stream.increment_pos(sizeof(uint16_t));
+            const uint16_t title_ordinal = stream.read<uint16_t>();
+            VLOG(VDEBUG) << "Title uses ordinal number " << std::dec <<  title_ordinal;
           } else {
-            std::u16string title_name = {reinterpret_cast<const char16_t*>(content.data() + offset)};
-            offset += (title_name.size() + 1) * sizeof(char16_t);
-            LOG(DEBUG) << "Title uses unicode string: \"" << u16tou8(title_name) << "\"";
-            dialog_item.title_ = std::u16string{title_name};
+            std::u16string title_name = stream.read_u16string();
+            VLOG(VDEBUG) << "Title uses unicode string: \"" << u16tou8(title_name) << "\"";
+            dialog_item.title_ = title_name;
           }
 
           // Extra count
           // -----------
-          const uint16_t extra_count = *reinterpret_cast<const uint16_t*>(stream.read(offset, sizeof(uint16_t)));
-          offset += sizeof(uint16_t);
-          LOG(DEBUG) << "Extra count: " << std::hex << extra_count << std::endl;
+          const uint16_t extra_count = stream.read<uint16_t>();
+          VLOG(VDEBUG) << "Extra count: " << std::hex << extra_count << std::endl;
           dialog_item.extra_count_ = extra_count;
-          offset += extra_count * sizeof(uint8_t);
+          stream.increment_pos(extra_count * sizeof(uint8_t));
           new_dialog.items_.push_back(std::move(dialog_item));
         }
 
@@ -1064,8 +1157,8 @@ void ResourcesManager::print_tree(
       }
 
       if (current_depth == 2) {
-        RESOURCE_SUBLANGS sub_lang = static_cast<RESOURCE_SUBLANGS>(child_node.id() >> 10);
-        RESOURCE_LANGS lang        = static_cast<RESOURCE_LANGS>(child_node.id() & 0x3ff);
+        RESOURCE_LANGS lang        = ResourcesManager::lang_from_id(child_node.id());
+        RESOURCE_SUBLANGS sub_lang = ResourcesManager::sublang_from_id(child_node.id());
         output << " - " << to_string(lang) << "/" << to_string(sub_lang);
       }
       output << std::setfill(' ');
@@ -1077,26 +1170,7 @@ void ResourcesManager::print_tree(
 }
 
 void ResourcesManager::accept(Visitor& visitor) const {
-  if (this->has_manifest()) {
-    visitor.visit(this->manifest());
-  }
-
-  if (this->has_version()) {
-    visitor(this->version());
-  }
-
-  if (this->has_icons()) {
-    for (const ResourceIcon& icon : this->icons()) {
-      visitor(icon);
-    }
-  }
-
-  if (this->has_dialogs()) {
-    for (const ResourceDialog& dialog : this->dialogs()) {
-      visitor(dialog);
-    }
-  }
-
+  visitor.visit(*this);
 }
 
 bool ResourcesManager::operator==(const ResourcesManager& rhs) const {
